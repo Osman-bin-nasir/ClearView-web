@@ -353,6 +353,47 @@ test('a GitHub refusal comes back with GitHub’s own words and no token', async
   assert.ok(!res.text.includes(TOKEN), 'the token must not travel back to the browser');
 });
 
+test('a 403 on the write names the permission to change, and the check that proves it', async () => {
+  configure();
+  // What a fine-grained token with read-only Contents gets, or one whose
+  // Repository access was left on "Public repositories" — read-only by
+  // definition. GitHub's own words name no setting, so the status has to.
+  const fetchImpl = fakeFetch([
+    { status: 200, json: { sha: 'blob-sha' } },
+    { status: 403, json: { message: 'Resource not accessible by personal access token' } },
+  ]);
+  const handler = makePublishHandler({ storage: githubStorage({ fetchImpl }) });
+  const res = mockResponse();
+  await handler(publishRequest([{ path: CONTENT_FILE, content: contentDocument() }]), res);
+
+  assert.equal(res.statusCode, 502);
+  assert.match(res.json.detail, /403/);
+  assert.match(res.json.detail, /Contents must be Read and write/);
+  assert.match(res.json.detail, /Save changes/, 'a permission edit that was never saved is a cause worth naming');
+  assert.match(res.json.detail, /github:check/, 'the screen has to say how to ask GitHub directly');
+  assert.ok(!res.text.includes(TOKEN));
+});
+
+test('a 404 on the write explains what a 404 means here', async () => {
+  configure();
+  // What a fine-grained token without access to the repository gets: 404 on the
+  // read (as if the file were new) and 404 on the write, with no hint from GitHub
+  // about which of the two it is.
+  const fetchImpl = fakeFetch([
+    { status: 404, json: { message: 'Not Found' } },
+    { status: 404, json: { message: 'Not Found' } },
+  ]);
+  const handler = makePublishHandler({ storage: githubStorage({ fetchImpl }) });
+  const res = mockResponse();
+  await handler(publishRequest([{ path: CONTENT_FILE, content: contentDocument() }]), res);
+
+  assert.equal(res.statusCode, 502);
+  assert.equal(res.json.error, 'github_failed');
+  assert.match(res.json.detail, /404/);
+  assert.match(res.json.detail, /GITHUB_REPO/, 'the message must point at the likely cause');
+  assert.match(res.json.detail, /granted this repository/);
+});
+
 test('a token that cannot read the repository is reported as such', async () => {
   configure();
   const fetchImpl = fakeFetch([{ status: 401, json: { message: 'Bad credentials' } }]);

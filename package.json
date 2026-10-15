@@ -11,7 +11,8 @@
     "test": "node --test \"tests/**/*.test.js\"",
     "admin:hash": "node tools/make-admin-hash.mjs",
     "admin:set": "node tools/make-admin-hash.mjs --write",
-    "admin:check": "node tools/make-admin-hash.mjs --check"
+    "admin:check": "node tools/make-admin-hash.mjs --check",
+    "github:check": "node --env-file-if-exists=.env tools/check-github-token.mjs"
   },
   "dependencies": {
     "react": "^19.3.0",

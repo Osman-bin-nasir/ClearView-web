@@ -183,6 +183,54 @@ With none of them set the screen says so: it asks `GET /api/admin/publish` when 
 editor opens, disables Publish, and names the variables that are missing — the same way it
 reports an unconfigured sign-in, and for the same reason.
 
+#### Making the GitHub token
+
+1. Open <https://github.com/settings/personal-access-tokens/new>. Take the **fine-grained**
+   kind: a classic token with `repo` scope reaches every repository you own, which is far
+   more than publishing needs.
+2. **Token name** `clearview-website-publish`. **Expiration** — 90 days, or a date you will
+   still remember: publishing stops the day it expires, and the screen says so.
+3. **Resource owner** — your own account. This repository is owned by a user
+   (`muddassir-2025`), not an organisation, so there is no approval step.
+4. **Repository access** → *Only select repositories* → `ClearView-web`.
+5. **Permissions** → *Repository permissions* → **Contents: Read and write**. That is the
+   only one needed; *Metadata: Read-only* is added by GitHub on its own.
+6. **Generate token** and copy `github_pat_…` — it is shown once, and never again.
+7. Paste it into Vercel as `GITHUB_TOKEN`, with `GITHUB_REPO=muddassir-2025/ClearView-web`,
+   and **redeploy**: environment variables reach a running deployment only through a new one.
+8. **Check it before you need it** — this asks GitHub the same questions the publish does:
+
+   ```bash
+   npm run github:check -- muddassir-2025/ClearView-web
+   ```
+
+   It reads `GITHUB_TOKEN` from `.env` (or the shell), then reports the repository, the
+   branch, each published file, and — the part that matters — a **write test**. That last
+   one creates an unreferenced object: no branch, no commit, no file, nothing anyone can
+   see. `201` means the token has `Contents: write` and a publish will go through; `403`
+   means it does not. It never prints the token, only its kind, and it exits non-zero when a
+   publish would fail, so it can be used from a script.
+
+   The paste above is worth doing carefully: pasting the **whole line**
+   (`GITHUB_TOKEN=github_pat_…`) into the value field is the mistake this tool catches
+   fastest, because the value then contains its own variable name and GitHub answers
+   `401 Bad credentials`. A fine-grained token is 93 characters and begins `github_pat_`.
+
+#### Reading a refusal
+
+GitHub's own words for these are one line each (`Not Found`,
+`Resource not accessible by personal access token`) and name no setting, so the endpoint
+adds the reading of the **status** to whatever GitHub said:
+
+| What it says | What it is |
+| --- | --- |
+| `401` | The token itself: mistyped, expired or revoked (or the whole line was pasted as the value). A new value needs a redeploy. |
+| `403` — *Resource not accessible by personal access token* | The token can reach the repository but may not write to it. `Contents` must be **Read and write**, the repository must be ticked under **Repository access** (`Public repositories` is read-only and can never publish), and **Save changes** must have been pressed. Editing a token changes no value, so this one needs no redeploy. |
+| `404` | The token cannot see the repository: the wrong `GITHUB_REPO`, or it was not selected when the token was made. GitHub answers 404 rather than 403 so the reply does not confirm whether a private repository exists. |
+
+`npm run github:check` distinguishes all three, and is the faster way to find out: it
+tests whether the token can write instead of waiting for a commit to fail.
+
 Signing in is the gate. The signed token is verified before a commit, with the same module
 (`server/admin-auth.js`) that mints and checks it, so there is one implementation of the
 check rather than two. What may be published is decided on the server: exactly two paths,
@@ -209,7 +257,8 @@ npm run admin:set -- you@example.com   # writes .env — see §The admin screen
 npm run dev        # http://localhost:5173
 npm run build      # writes dist/
 npm run preview    # serve the built site locally
-npm test           # the admin endpoint's tests (node:test, no browser needed)
+npm test           # every test
+npm run github:check -- owner/name   # can this token actually publish? (see §Publishing)
 ```
 
 The three admin variables are read from `.env` by `vite.config.js` for `dev` and
@@ -310,9 +359,15 @@ tests/admin-api.test.js    the sign-in endpoint's tests, run with `npm test`
 tests/admin-env.test.js    generates a credential into a throwaway file, then signs in with it
 tests/admin-publish.test.js the publish endpoint: who may, what may be written where, and
                            the exact commit it makes (no network, no token, no commit)
+tests/github-check.test.js the token checker's verdicts: read-only, a classic token with
+                           no scope, a wrong repository, a rejected credential
 tools/make-admin-hash.mjs  writes ADMIN_PASSWORD_HASH + ADMIN_SESSION_SECRET, printing
                            them or (--write, npm run admin:set) putting them into .env;
                            --check tests a password against the configured hash
+tools/check-github-token.mjs  asks GitHub whether a publishing token can actually commit
+                           (npm run github:check): the repository, its own permissions
+                           report, the branch, the two files, and a write test that
+                           creates one unreferenced object. Never prints the token
 src/hooks/useReveal.js     IntersectionObserver scroll reveals
 src/hooks/useHashRoute.js  the router: #/privacy, #/admin, and nothing else
 src/components/            Header, Hero, Platforms, Section, Cluster, Phone,

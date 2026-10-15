@@ -117,6 +117,39 @@ export function validate(body) {
 // ── Where the bytes go ───────────────────────────────────────────────────
 
 /**
+ * What a GitHub status means here, in the terms of the setting to change.
+ *
+ * GitHub's words for the two refusals that matter most are one line each — "Not
+ * Found", and "Resource not accessible by personal access token" — and neither
+ * names a checkbox. The *status* is what is informative: 401 is the token, 403
+ * is its permissions, 404 is whether it can see the repository at all. The same
+ * readings are in tools/check-github-token.mjs, which asks GitHub directly and
+ * can be run before a publish rather than after one.
+ */
+function explain(status, action) {
+  if (status === 401) {
+    return 'GitHub refused the token itself: it is mistyped, expired or revoked, and a new value reaches this deployment only through a redeploy';
+  }
+  if (status === 403) {
+    return action === 'read'
+      ? 'GitHub answers 403 when the token has no permission for this repository at all: set Contents to Read and write, tick the repository under Repository access, and press Save changes — then npm run github:check will confirm it'
+      : 'GitHub answers 403 when the token can reach the repository but not write to it: Contents must be Read and write (and a classic token needs the repo scope, even on a public repository), and Save changes must be pressed on the token — a permission edit changes no value, so this needs no redeploy. npm run github:check reports which of them it is';
+  }
+  if (status === 404) {
+    return 'GitHub answers 404 when a token cannot see the repository, so check GITHUB_REPO and that the token was granted this repository';
+  }
+  return '';
+}
+
+/** The status, GitHub's own words if there are any, the subject, and the reading of it. */
+function refusal(status, action, { message = '', subject = '' } = {}) {
+  const head = [message ? `${status}: ${message}` : String(status), subject].filter(Boolean).join(' ');
+  const hint = explain(status, action);
+  return hint ? `${head} — ${hint}` : head;
+}
+
+
+/**
  * Commit to the repository through GitHub's Contents API.
  *
  * One file per commit, which is what the admin screen publishes: the tab you
@@ -164,9 +197,11 @@ export function githubStorage({ fetchImpl = globalThis.fetch, env = process.env 
           throw new PublishError('github_unreadable', { status: 502, detail: 'no sha for the existing file' });
         }
       } else if (current.status !== 404) {
+        // A 404 here is normal — the first publish is what creates the file — so
+        // anything else is a refusal, and the refusal names the token.
         throw new PublishError('github_failed', {
           status: 502,
-          detail: `${current.status} reading ${path} (is the token allowed to read this repository?)`,
+          detail: refusal(current.status, 'read', { subject: `reading ${path}` }),
         });
       }
 
@@ -182,16 +217,21 @@ export function githubStorage({ fetchImpl = globalThis.fetch, env = process.env 
       });
 
       if (!response.ok) {
-        // GitHub's own words, which name the permission or the conflict. Nothing
-        // from the request is echoed: the token is in a header, never in this.
-        let detail = `HTTP ${response.status}`;
+        // GitHub's own words first, then the reading of the status, which is the
+        // part that names what to change. Nothing from the request is echoed: the
+        // token is in a header, never in this. A file being written is never a
+        // 404 here — not when it exists, and not when it is new.
+        let message = '';
         try {
           const body = await response.json();
-          if (typeof body?.message === 'string') detail = `${response.status}: ${body.message}`;
+          if (typeof body?.message === 'string') message = body.message;
         } catch {
           /* a body that is not JSON leaves the status as the whole story */
         }
-        throw new PublishError('github_failed', { status: 502, detail });
+        throw new PublishError('github_failed', {
+          status: 502,
+          detail: refusal(response.status, 'write', { message }),
+        });
       }
 
       const body = await response.json();
