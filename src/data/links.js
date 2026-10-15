@@ -7,8 +7,9 @@
  *   1. `DEFAULT_PLATFORMS` below — the values compiled into the bundle. They are
  *      the fallback, and the reason the site renders correctly with no network
  *      and no published file at all.
- *   2. `app-links.json` at the site root — the PUBLISHED values, produced by the
- *      admin page and committed (see the README). Read once at startup.
+ *   2. `app-links.json` at the site root — the PUBLISHED values, written by the
+ *      admin screen's Publish (which commits them to the repository on the
+ *      deployment) and read once at startup.
  *   3. `localStorage` — what the admin is editing right now, on their own
  *      machine, before they publish anything.
  *
@@ -226,18 +227,7 @@ export function linksFileText(list = platforms) {
   return `${JSON.stringify(payload, null, 2)}\n`;
 }
 
-/** Read a file the admin picked, so an edit can be moved between machines. */
-export function parseLinksFile(text) {
-  let parsed;
-  try {
-    parsed = JSON.parse(text);
-  } catch {
-    return { ok: false, error: 'That file is not valid JSON.' };
-  }
-  const merged = merge(linksFrom(parsed));
-  if (!merged) return { ok: false, error: 'That file does not carry a "links" list.' };
-  return { ok: true, platforms: merged };
-}
+
 
 /** React binding: re-renders whatever reads the links when they change. */
 export function usePlatforms() {

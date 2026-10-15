@@ -11,8 +11,9 @@
  *
  *   1. `DEFAULT_SITE` — the compiled defaults, correct with no network and no
  *      published file at all.
- *   2. `site-content.json` at the site root — the PUBLISHED document, exported
- *      by the admin screen and committed (see the README). Read once at startup.
+ *   2. `site-content.json` at the site root — the PUBLISHED document, written by
+ *      the admin screen's Publish (which commits it to the repository on the
+ *      deployment) and read once at startup.
  *   3. `localStorage` — the admin's unpublished draft, on their own machine.
  *
  * WHAT IS NOT IN HERE, on purpose:
@@ -195,21 +196,26 @@ export const DEFAULT_SITE = Object.freeze({
   },
 
   header: {
-    /* The header's few destinations. `href` is a hash target or route. */
+    /*
+     * The header's few destinations. `href` is a hash target or route.
+     *
+     * There is no header BUTTON to label: the header is the wordmark and these
+     * links, and the download button belongs to the hero, where a visitor is
+     * actually looking for it.
+     */
     nav: [
       { label: 'Platforms', href: '#platforms' },
       { label: 'Protection', href: '#protection' },
       { label: 'Screens', href: '#showcase' },
       { label: 'Privacy', href: '#/privacy' },
     ],
-    cta: 'Download',
   },
 
   hero: {
     eyebrow: 'Android · iOS · Chrome',
     title: 'Watch what you want, not what they want.',
     lead: 'ClearView is one organisation with three apps: safer browsing, focused media, productivity and everyday tools on Android and on iPhone and iPad — and the same protection running in Chrome, right where the browsing happens.',
-    /* The one button in the hero. It opens the three apps. */
+    /* The one button in the hero, and what it says. It scrolls to the cards. */
     cta: 'Download',
   },
 
@@ -534,9 +540,12 @@ export function mergeSite(incoming) {
       name: text(doc.brand?.name, base.brand.name),
       logo: text(doc.brand?.logo, base.brand.logo),
     },
+    /*
+     * `header.cta` no longer exists — the header has no button — so a published
+     * file that still carries one is ignored rather than half-applied.
+     */
     header: {
       nav: nav.length > 0 ? nav : base.header.nav.map((item) => ({ ...item })),
-      cta: text(doc.header?.cta, base.header.cta),
     },
     hero: {
       eyebrow: text(doc.hero?.eyebrow, base.hero.eyebrow),
@@ -697,19 +706,7 @@ export function siteFileText(document = site) {
   return `${JSON.stringify(payload, null, 2)}\n`;
 }
 
-/** Read a file the admin picked, so an edit can be moved between machines. */
-export function parseSiteFile(text_) {
-  let parsed;
-  try {
-    parsed = JSON.parse(text_);
-  } catch {
-    return { ok: false, error: 'That file is not valid JSON.' };
-  }
-  if (!parsed || typeof parsed !== 'object') {
-    return { ok: false, error: 'That file does not carry a content document.' };
-  }
-  return { ok: true, content: mergeSite(parsed) };
-}
+
 
 // ── Reading the document from a component ────────────────────────────────
 

@@ -586,133 +586,6 @@
   }
 
   /* -------------------------------------------------------------------------
-     The download menu
-     One button, a small panel of the three apps. Positioned against the
-     button that opened it, so it works in the header, the hero and the
-     closing section without three sets of rules.
-  ------------------------------------------------------------------------- */
-  .dl {
-    position: relative;
-    display: inline-flex;
-  }
-
-  .dl--right .dl__menu {
-    left: auto;
-    right: 0;
-  }
-
-  .dl__button {
-    cursor: pointer;
-  }
-
-  .dl__caret {
-    font-size: 0.7em;
-    line-height: 1;
-    transition: transform 0.22s ease;
-  }
-
-  .dl__caret.is-open {
-    transform: rotate(180deg);
-  }
-
-  .dl__menu {
-    position: absolute;
-    top: calc(100% + 0.6rem);
-    left: 0;
-    z-index: 60;
-    width: min(20rem, calc(100vw - 2.5rem));
-    padding: 0.5rem;
-    border: 1px solid var(--color-edge);
-    border-radius: 16px;
-    background: color-mix(in srgb, var(--color-ink-2) 96%, transparent);
-    backdrop-filter: blur(10px);
-    box-shadow: 0 30px 70px -30px rgba(0, 0, 0, 0.9), 0 0 0 1px rgba(0, 224, 210, 0.06);
-    animation: dl-in 0.16s ease-out;
-  }
-
-  @keyframes dl-in {
-    from {
-      opacity: 0;
-      transform: translateY(-6px);
-    }
-  }
-
-  .dl__title {
-    padding: 0.5rem 0.7rem 0.4rem;
-    font-family: var(--font-display);
-    font-size: 0.66rem;
-    font-weight: 700;
-    letter-spacing: 0.18em;
-    text-transform: uppercase;
-    color: var(--color-dim);
-  }
-
-  .dl__row {
-    display: flex;
-    align-items: center;
-    gap: 0.8rem;
-    padding: 0.7rem;
-    border-radius: 12px;
-    text-decoration: none;
-    color: var(--color-mist);
-    transition: background-color 0.16s ease;
-  }
-
-  .dl__row:hover {
-    background: rgba(255, 255, 255, 0.05);
-  }
-
-  .dl__row--wait {
-    color: var(--color-dim);
-    cursor: default;
-  }
-
-  .dl__row--wait:hover {
-    background: transparent;
-  }
-
-  .dl__mark {
-    display: grid;
-    place-items: center;
-    flex: 0 0 auto;
-    width: 36px;
-    height: 36px;
-    border-radius: 11px;
-    border: 1px solid var(--color-edge);
-    background: rgba(0, 224, 210, 0.05);
-    color: var(--color-teal);
-  }
-
-  .dl__row--wait .dl__mark {
-    color: var(--color-dim);
-    background: rgba(255, 255, 255, 0.02);
-  }
-
-  .dl__text {
-    flex: 1;
-    min-width: 0;
-  }
-
-  .dl__name {
-    display: block;
-    font-family: var(--font-display);
-    font-size: 0.9rem;
-    font-weight: 700;
-  }
-
-  .dl__meta {
-    display: block;
-    font-size: 0.76rem;
-    color: var(--color-dim);
-  }
-
-  .dl__go {
-    flex: 0 0 auto;
-    font-size: 0.9rem;
-    color: var(--color-teal);
-  }
-
-  /* -------------------------------------------------------------------------
      Platform cards (the three apps)
   ------------------------------------------------------------------------- */
   .pcard {
@@ -1012,6 +885,15 @@
     border-color: rgba(255, 176, 32, 0.3);
   }
 
+  /*
+   * The sign-in card. Nothing else is on the page while it is showing, so it is
+   * the one place in the project where the card is the whole screen and can be
+   * sized like a form rather than like a panel.
+   */
+  .admin__login {
+    max-width: 26rem;
+  }
+
   .admin__bar {
     display: flex;
     flex-wrap: wrap;
@@ -1245,15 +1127,6 @@
     color: var(--color-dim);
   }
 
-  /* A file input driven by its own button, so it never has to be styled. */
-  .hidden-input {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-    white-space: nowrap;
-  }
 }
 
 /* ---------------------------------------------------------------------------

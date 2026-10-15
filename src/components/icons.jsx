@@ -61,6 +61,33 @@ export function ChromeIcon({ size = 18, className = '' }) {
   );
 }
 
+/**
+ * Download mark, for the buttons that scroll to the three app cards.
+ *
+ * A drawn arrow-into-a-line rather than a store's own badge: the button is not
+ * one store's, it is the page's, and the three cards it scrolls to carry the
+ * store marks themselves.
+ */
+export function DownloadIcon({ size = 18 }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width={size}
+      height={size}
+      aria-hidden="true"
+      focusable="false"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M12 3v12m0 0 4.5-4.5M12 15l-4.5-4.5" />
+      <path d="M4 18.5h16" />
+    </svg>
+  );
+}
+
 /** Chevron used by the lightbox arrows. */
 export function ChevronIcon({ dir = 'right', size = 18 }) {
   const rotation = { left: 90, right: -90, up: 180, down: 0 }[dir] ?? 0;

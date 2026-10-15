@@ -1,14 +1,15 @@
 import { brandLogo, useSite } from '../data/site.js';
-import DownloadMenu from './DownloadMenu.jsx';
 
 /**
- * Sticky header: wordmark on the left, the site's few destinations in the
- * middle, one download button on the right.
+ * Sticky header: the wordmark on the left, the site's few destinations on the
+ * right.
  *
- * The nav labels, the brand name and the button's word all come from the content
- * store, so the admin edits them like any other copy. The button itself comes
- * from the links store, so when Android's listing moves — or iOS goes live — the
- * menu follows without a code change.
+ * It deliberately carries NO download button. It used to: a small ghosted
+ * "Download" that opened the same three apps as the hero's. Two buttons doing
+ * one job, and the one in the header is the one a visitor has already scrolled
+ * past — the page's own answer to "where do I get this" is the three cards under
+ * `#platforms`, and the hero's button scrolls to them. Anything the header
+ * needs, it can reach as a link, like the rest of the nav.
  */
 export default function Header() {
   const site = useSite();
@@ -31,15 +32,18 @@ export default function Header() {
           {site.brand.name}
         </a>
 
-        <nav className="hidden items-center gap-6 text-sm text-dim sm:flex" aria-label="Sections">
+        {/* Visible at every width now that the button is gone: a phone gets the
+            same four links, a little smaller, rather than no navigation. */}
+        <nav
+          className="flex flex-wrap items-center justify-end gap-x-5 gap-y-1 text-[0.8rem] text-dim sm:gap-x-6 sm:text-sm"
+          aria-label="Sections"
+        >
           {site.header.nav.map((item) => (
             <a key={`${item.label}-${item.href}`} className="hover:text-teal" href={item.href}>
               {item.label}
             </a>
           ))}
         </nav>
-
-        <DownloadMenu small variant="ghost" label={site.header.cta} align="right" />
       </div>
     </header>
   );

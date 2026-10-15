@@ -22,40 +22,31 @@
  *   ADMIN_PASSWORD_HASH    scrypt:N:r:p:salt:hash — from tools/make-admin-hash.mjs
  *   ADMIN_SESSION_SECRET   signs the tokens; changing it signs everyone out
  *
- * WHAT THIS STILL IS NOT: authority over the published links. Signing in gates
- * this screen; the links themselves are published by committing
- * `public/app-links.json`, which is a push to the repository and cannot be
- * granted by a token. The screen says so rather than implying otherwise.
+ * The token this mints is also what admits a publish: `api/admin/publish.js`
+ * verifies the same signature with the same module (`server/admin-auth.js`)
+ * before it commits anything. Signing in is therefore the one gate in front of
+ * both screens, and there is one implementation of the check rather than two.
  */
 
-import { createHash, createHmac, scrypt, timingSafeEqual } from 'node:crypto';
+import { scrypt, timingSafeEqual } from 'node:crypto';
 import { promisify } from 'node:util';
+import {
+  bearerToken,
+  readConfig,
+  readJsonBody,
+  sameSecret,
+  send,
+  signToken,
+  verifyToken,
+} from '../../server/admin-auth.js';
 
 const scryptAsync = promisify(scrypt);
 
-/** Hash format written by tools/make-admin-hash.mjs: `scrypt:N:r:p:salt:hash`. */
-const HASH_ALGORITHM = 'scrypt';
-/**
- * Why `:` and not the more usual `$`.
- *
- * A `$` in a `.env` file is a variable reference: Vite reads these files through
- * dotenv and expands `$16384` (and `$8`, `$1`, …), so a `$`-separated hash
- * pasted into `.env` arrives here silently rewritten — `scrypt$16384$8$1$…`
- * became `scrypt$16384$8$1=…` in testing, which no longer parses and would look
- * like a wrong password. Escaping it (`\$`) fixes `.env` and breaks the value
- * in a dashboard field that does no expansion. A separator that is not special
- * to any of them is the only version that works everywhere, unquoted.
- */
-const HASH_SEPARATOR = ':';
-/** How long a signed-in session lasts. Shorter than a work day, longer than a sitting. */
-const TOKEN_TTL_MS = 12 * 60 * 60 * 1000;
 /** A login body is two short strings; anything larger is not one. */
 const MAX_BODY_BYTES = 4 * 1024;
 /** Failures per address before it is locked out, and for how long. */
 const MAX_FAILURES = 5;
 const LOCKOUT_MS = 15 * 60 * 1000;
-/** A secret shorter than this is not worth signing with. */
-const MIN_SECRET_LENGTH = 16;
 
 /**
  * The parameters a password is checked against when the email is wrong or the
@@ -74,138 +65,6 @@ const DUMMY_HASH = Object.freeze({
   digest: Buffer.alloc(32),
 });
 
-// ── Environment ──────────────────────────────────────────────────────────
-
-/**
- * Read the configuration, and say what is wrong with it.
- *
- * `missing` and `unusable` carry ENV VAR NAMES only — never a value, and never
- * a hint about the password. They exist so the admin screen can tell the person
- * deploying exactly which setting to add, instead of a flat "denied".
- */
-function readConfig() {
-  const email = String(process.env.ADMIN_EMAIL ?? '').trim().toLowerCase();
-  const secret = String(process.env.ADMIN_SESSION_SECRET ?? '').trim();
-  const missing = [];
-  const unusable = [];
-
-  if (email === '') missing.push('ADMIN_EMAIL');
-  else if (!email.includes('@')) unusable.push('ADMIN_EMAIL');
-
-  if (secret === '') missing.push('ADMIN_SESSION_SECRET');
-  else if (secret.length < MIN_SECRET_LENGTH) unusable.push('ADMIN_SESSION_SECRET');
-
-  const hash = parseHash(process.env.ADMIN_PASSWORD_HASH);
-  if (String(process.env.ADMIN_PASSWORD_HASH ?? '').trim() === '') {
-    missing.push('ADMIN_PASSWORD_HASH');
-  } else if (!hash) {
-    unusable.push('ADMIN_PASSWORD_HASH');
-  }
-
-  return {
-    email,
-    secret,
-    hash,
-    missing,
-    unusable,
-    configured: missing.length === 0 && unusable.length === 0,
-  };
-}
-
-/**
- * Read `scrypt:N:r:p:salt:hash`.
- *
- * Returns null for anything else — including a plaintext password someone
- * pasted into `ADMIN_PASSWORD_HASH`. Refusing to guess is the point: a
- * misconfigured deployment must fail closed and say the setting is wrong, not
- * quietly compare a password to a password in a way nobody can see.
- */
-function parseHash(value) {
-  const text = String(value ?? '').trim();
-  const parts = text.split(HASH_SEPARATOR);
-  if (parts.length !== 6 || parts[0] !== HASH_ALGORITHM) return null;
-
-  const [, cost, blockSize, parallelisation, salt, digest] = parts;
-  const N = Number(cost);
-  const r = Number(blockSize);
-  const p = Number(parallelisation);
-  if (!Number.isInteger(N) || !Number.isInteger(r) || !Number.isInteger(p)) return null;
-  // A power of two is what scrypt requires; 2^14 is the floor this project writes.
-  if (N < 1024 || (N & (N - 1)) !== 0 || r < 1 || p < 1) return null;
-
-  try {
-    const saltBytes = Buffer.from(salt, 'base64');
-    const digestBytes = Buffer.from(digest, 'base64');
-    if (saltBytes.length < 8 || digestBytes.length < 16) return null;
-    return { N, r, p, salt: saltBytes, digest: digestBytes };
-  } catch {
-    return null;
-  }
-}
-
-// ── Comparisons and tokens ───────────────────────────────────────────────
-
-/**
- * Compare two secrets without leaking where they differ.
- *
- * Both sides are hashed first so the comparison is between equal-length
- * buffers whatever the inputs were — `timingSafeEqual` throws on a length
- * mismatch, and its error would itself be the leak.
- */
-function sameSecret(a, b) {
-  const left = createHash('sha256').update(a).digest();
-  const right = createHash('sha256').update(b).digest();
-  return timingSafeEqual(left, right);
-}
-
-const base64url = (input) => Buffer.from(input).toString('base64url');
-
-/**
- * Sign a session token: `<payload>.<hmac>`.
- *
- * A signed claim rather than a random id in a database, because this deployment
- * has no database. The payload is readable — it holds an email and an expiry,
- * nothing else — and the signature is what makes it unforgeable. Anyone can
- * read it; only the holder of `ADMIN_SESSION_SECRET` can mint one.
- */
-function signToken(email, secret, now) {
-  const payload = base64url(
-    JSON.stringify({ sub: email, iat: now, exp: now + TOKEN_TTL_MS }),
-  );
-  const signature = createHmac('sha256', secret).update(payload).digest('base64url');
-  return { token: `${payload}.${signature}`, expiresAt: now + TOKEN_TTL_MS };
-}
-
-/** The claims in a token, or null if it is forged, malformed or expired. */
-function verifyToken(token, secret, now) {
-  if (typeof token !== 'string') return null;
-  const separator = token.lastIndexOf('.');
-  if (separator <= 0) return null;
-
-  const payload = token.slice(0, separator);
-  const signature = token.slice(separator + 1);
-  const expected = createHmac('sha256', secret).update(payload).digest('base64url');
-  if (!sameSecret(signature, expected)) return null;
-
-  let claims;
-  try {
-    claims = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'));
-  } catch {
-    return null;
-  }
-  if (typeof claims?.exp !== 'number' || claims.exp <= now) return null;
-  if (typeof claims?.sub !== 'string' || claims.sub === '') return null;
-  return claims;
-}
-
-/** The token out of `Authorization: Bearer …`. */
-function bearerToken(req) {
-  const header = req.headers?.authorization ?? req.headers?.Authorization;
-  if (typeof header !== 'string') return '';
-  const match = /^Bearer\s+(.+)$/i.exec(header.trim());
-  return match ? match[1] : '';
-}
-
 // ── Failed attempts ──────────────────────────────────────────────────────
 
 /**
@@ -215,7 +74,7 @@ function bearerToken(req) {
  * them, so this slows a password guesser down rather than stopping one, and it
  * resets when the function cold-starts. A real limit needs shared storage, and
  * a real defence is the length of the password — which is why the generator
- * insists on one.
+ * says so when one is short.
  */
 const failures = new Map();
 
@@ -243,48 +102,6 @@ function recordFailure(address, now) {
   failures.set(address, record);
 }
 
-// ── Request plumbing ─────────────────────────────────────────────────────
-
-const send = (res, status, payload) => {
-  const body = JSON.stringify(payload);
-  res.statusCode = status;
-  res.setHeader('content-type', 'application/json; charset=utf-8');
-  res.setHeader('cache-control', 'no-store');
-  res.setHeader('content-length', Buffer.byteLength(body));
-  res.end(body);
-};
-
-/**
- * The JSON body, `{}` for an empty one, or undefined when it is not JSON or is
- * too large to be a login.
- *
- * `req.body` is used when the runtime already parsed it (Vercel does for
- * `application/json`); otherwise the stream is read, which is what the dev
- * server's middleware hands over.
- */
-async function readJsonBody(req) {
-  if (req.body !== undefined && req.body !== null && typeof req.body === 'object') return req.body;
-
-  const chunks = [];
-  let size = 0;
-  try {
-    for await (const chunk of req) {
-      size += chunk.length;
-      if (size > MAX_BODY_BYTES) return undefined;
-      chunks.push(chunk);
-    }
-  } catch {
-    return undefined;
-  }
-  const text = Buffer.concat(chunks).toString('utf8').trim();
-  if (text === '') return {};
-  try {
-    return JSON.parse(text);
-  } catch {
-    return undefined;
-  }
-}
-
 // ── The endpoint ─────────────────────────────────────────────────────────
 
 export default async function handler(req, res) {
@@ -295,9 +112,7 @@ export default async function handler(req, res) {
   if (method === 'GET') {
     // A stored token is checked against the live secret on every load: rotate
     // ADMIN_SESSION_SECRET and every session minted before it stops working.
-    const claims = config.configured
-      ? verifyToken(bearerToken(req), config.secret, now)
-      : null;
+    const claims = config.configured ? verifyToken(bearerToken(req), config.secret, now) : null;
     send(res, 200, {
       configured: config.configured,
       missing: config.missing,
@@ -334,7 +149,7 @@ export default async function handler(req, res) {
     return;
   }
 
-  const body = await readJsonBody(req);
+  const body = await readJsonBody(req, MAX_BODY_BYTES);
   if (!body) {
     send(res, 400, { error: 'bad_request' });
     return;

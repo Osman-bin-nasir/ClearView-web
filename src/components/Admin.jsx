@@ -1,21 +1,16 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { adminErrorMessage, refresh, signIn, signOut, useAdmin } from '../data/admin.js';
+import { useEffect, useMemo, useState } from 'react';
 import {
-  linksFileText,
-  parseLinksFile,
-  platformsOrigin,
-  resetPlatforms,
-  savePlatforms,
-  usePlatforms,
-} from '../data/links.js';
-import {
-  parseSiteFile,
-  resetSite,
-  saveSite,
-  siteFileText,
-  siteOrigin,
-  useSite,
-} from '../data/site.js';
+  adminErrorMessage,
+  fetchPublishState,
+  publish,
+  publishErrorMessage,
+  refresh,
+  signIn,
+  signOut,
+  useAdmin,
+} from '../data/admin.js';
+import { linksFileText, platformsOrigin, savePlatforms, usePlatforms } from '../data/links.js';
+import { saveSite, siteFileText, siteOrigin, useSite } from '../data/site.js';
 
 /**
  * The admin screen, reached from the footer.
@@ -36,10 +31,11 @@ import {
  *   · SIGNING IN IS REAL. The email and password are checked by this
  *     deployment's own function against the environment, and the browser only
  *     holds a short-lived signed token. No sign-up, no password stored here.
- *   · PUBLISHING IS STILL A COMMIT. Edits save in this browser and export as
- *     JSON files, which are what make them the site's. A token cannot push to
- *     the repository, and pretending otherwise would be a lie with a Save
- *     button on it.
+ *   · PUBLISHING IS A COMMIT, AND THE DEPLOY FOLLOWS IT. Save keeps a draft in
+ *     the admin's own browser; Publish hands the document to this deployment's
+ *     function, which commits it to the repository and lets the deploy take it
+ *     from there. What is published, and where a publish can write, is decided
+ *     on the server — the screen only sends two documents it is allowed to send.
  */
 
 // ── Shared bits ──────────────────────────────────────────────────────────
@@ -369,14 +365,13 @@ function SiteEditor({ draft, setDraft }) {
 
   return (
     <>
-      <Group title="Brand & header" note="The name and mark at the top of every page." pair>
+      <Group title="Brand & header" note="The name and mark at the top of every page. The header carries no button." pair>
         {field('brand.name', 'Brand name')}
         {field('brand.logo', 'Logo file', { hint: 'A file at the site root, e.g. logo.png' })}
-        {field('header.cta', 'Header button')}
         {field('header.nav', 'Header links', { kind: 'links', hint: 'A hash target, e.g. #platforms' })}
       </Group>
 
-      <Group title="Opening screen" pair>
+      <Group title="Opening screen" note="Its button scrolls down to the three cards." pair>
         {field('hero.eyebrow', 'Eyebrow')}
         {field('hero.cta', 'Download button')}
         {field('hero.title', 'Headline', { wide: true })}
@@ -432,7 +427,7 @@ function SiteEditor({ draft, setDraft }) {
         </div>
       </Group>
 
-      <Group title="Closing section" pair>
+      <Group title="Closing section" note="Its button scrolls to the same three cards." pair>
         {field('closing.title', 'Headline', { wide: true })}
         {field('closing.cta', 'Download button')}
       </Group>
@@ -538,19 +533,19 @@ function LinksEditor({ draft, setDraft }) {
   );
 }
 
-// ── The editor: draft, save, publish, preview ────────────────────────────
+// ── The editor: draft, preview, publish ──────────────────────────────────
 
 function Editor({ email, onSignOut }) {
   const site = useSite();
   const platforms = usePlatforms();
   const [tab, setTab] = useState('content');
   const [status, setStatus] = useState('');
-  const siteFileRef = useRef(null);
-  const linksFileRef = useRef(null);
+  const [publisher, setPublisher] = useState(null);
+  const [publishing, setPublishing] = useState(false);
 
-  // A Save, a Revert or an import replaces a store; the form follows it. The
-  // draft is a clone, because the store's document is shared with the page and
-  // must never be edited in place.
+  // A Save or a publish replaces a store; the form follows it. The draft is a
+  // clone, because the store's document is shared with the page and must never
+  // be edited in place.
   const [contentDraft, setContentDraft] = useState(() => structuredClone(site));
   const [linksDraft, setLinksDraft] = useState(() => platforms.map((p) => ({ ...p })));
 
@@ -562,6 +557,19 @@ function Editor({ email, onSignOut }) {
     setLinksDraft(platforms.map((platform) => ({ ...platform })));
   }, [platforms]);
 
+  // Asked once, when the editor opens: whether this deployment can publish, and
+  // where a publish would go. Worth knowing before a paragraph has been typed —
+  // `null` means the question could not be asked at all.
+  useEffect(() => {
+    let live = true;
+    void fetchPublishState().then((state) => {
+      if (live) setPublisher(state);
+    });
+    return () => {
+      live = false;
+    };
+  }, []);
+
   const contentDirty = useMemo(
     () => JSON.stringify(contentDraft) !== JSON.stringify(site),
     [contentDraft, site],
@@ -571,20 +579,6 @@ function Editor({ email, onSignOut }) {
     [linksDraft, platforms],
   );
   const dirty = tab === 'content' ? contentDirty : linksDirty;
-
-  /** Download text as a file. Both exports work the same way. */
-  const download = (name, text, message) => {
-    const blob = new Blob([text], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = name;
-    document.body.append(link);
-    link.click();
-    link.remove();
-    URL.revokeObjectURL(url);
-    setStatus(message);
-  };
 
   /** Returns true when the draft was accepted and stored. */
   const onSave = () => {
@@ -600,8 +594,8 @@ function Editor({ email, onSignOut }) {
       const stored = savePlatforms(linksDraft);
       setStatus(
         stored
-          ? 'Saved in this browser. Export the file below to publish it for everyone.'
-          : 'Saved for this session, but this browser refused to store it — private mode blocks it. Export the file before you close the tab.',
+          ? 'Saved in this browser. Publish sends it to the site; Preview looks at it first.'
+          : 'Saved for this session, but this browser refused to store it — private mode blocks it. Publish before you close the tab.',
       );
       return true;
     }
@@ -609,54 +603,43 @@ function Editor({ email, onSignOut }) {
     const stored = saveSite(contentDraft);
     setStatus(
       stored
-        ? 'Saved in this browser. Open the site to check it, then export the file below to publish it for everyone.'
-        : 'Saved for this session, but this browser refused to store it — private mode blocks it. Export the file before you close the tab.',
+        ? 'Saved in this browser. Preview looks at it on the site; Publish sends it to everyone.'
+        : 'Saved for this session, but this browser refused to store it — private mode blocks it. Publish before you close the tab.',
     );
     return true;
   };
 
-  const onReset = () => {
-    if (tab === 'links') {
-      resetPlatforms();
-      setStatus('Back to the published links.');
-      return;
-    }
-    resetSite();
-    setStatus('Back to the published content.');
-  };
+  /**
+   * Publish what is on screen.
+   *
+   * `onSave` runs first: it is what validates the draft and keeps it in this
+   * browser, and publishing a document that failed its own checks would put the
+   * mistake in front of everyone instead of on the screen of the one person who
+   * can fix it. The draft is deliberately NOT cleared afterwards — the page has
+   * not rebuilt yet, so the local copy is still the newest thing in the tab, and
+   * throwing it away would look like the publish had undone the edit.
+   */
+  const onPublish = async () => {
+    if (!onSave()) return;
+    setPublishing(true);
+    const result = await publish(
+      tab === 'links'
+        ? { kind: 'links', content: linksFileText(linksDraft) }
+        : { kind: 'content', content: siteFileText(contentDraft) },
+    );
+    setPublishing(false);
 
-  const onExport = () => {
-    if (tab === 'links') {
-      download('app-links.json', linksFileText(linksDraft), 'Exported app-links.json — commit it to public/ to publish these links.');
-      return;
-    }
-    download('site-content.json', siteFileText(contentDraft), 'Exported site-content.json — commit it to public/ to publish this content.');
-  };
-
-  const onImport = async (event, kind) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    const text = await file.text();
-    event.target.value = '';
-
-    if (kind === 'links') {
-      const result = parseLinksFile(text);
-      if (!result.ok) {
-        setStatus(result.error);
-        return;
-      }
-      savePlatforms(result.platforms);
-      setStatus('Imported. Check the links, then export to publish.');
-      return;
-    }
-
-    const result = parseSiteFile(text);
     if (!result.ok) {
-      setStatus(result.error);
+      setStatus(publishErrorMessage(result));
       return;
     }
-    saveSite(result.content);
-    setStatus('Imported. Check the page, then export to publish.');
+
+    const file = tab === 'links' ? 'app-links.json' : 'site-content.json';
+    setStatus(
+      result.mode === 'directory'
+        ? `Published into public/${file} on this machine — commit it to deploy.`
+        : `Published to ${result.target}. Vercel is building: the live site follows in about a minute.`,
+    );
   };
 
   /**
@@ -725,50 +708,47 @@ function Editor({ email, onSignOut }) {
       )}
 
       <div className="admin__sticky">
-        <button type="button" className="btn btn--primary btn--sm" onClick={onSave} disabled={!dirty}>
-          Save changes
+        <button type="button" className="btn btn--ghost btn--sm" onClick={onSave} disabled={!dirty}>
+          Save
         </button>
         <button type="button" className="btn btn--ghost btn--sm" onClick={onPreview}>
-          Preview on the site
-        </button>
-        <button type="button" className="btn btn--ghost btn--sm" onClick={onReset}>
-          Revert to published
-        </button>
-        <button type="button" className="btn btn--ghost btn--sm" onClick={onExport}>
-          Export {tab === 'links' ? 'app-links.json' : 'site-content.json'}
+          Preview
         </button>
         <button
           type="button"
-          className="btn btn--ghost btn--sm"
-          onClick={() => (tab === 'links' ? linksFileRef.current : siteFileRef.current)?.click()}
+          className="btn btn--primary btn--sm"
+          onClick={onPublish}
+          disabled={publishing || publisher?.configured === false}
         >
-          Import…
+          {publishing ? 'Publishing…' : 'Publish'}
         </button>
         <span className="admin__status">{status}</span>
-        <input
-          ref={siteFileRef}
-          type="file"
-          accept="application/json,.json"
-          className="hidden-input"
-          onChange={(event) => onImport(event, 'content')}
-        />
-        <input
-          ref={linksFileRef}
-          type="file"
-          accept="application/json,.json"
-          className="hidden-input"
-          onChange={(event) => onImport(event, 'links')}
-        />
       </div>
 
       <Notice tone="warn">
-        <strong>Publishing.</strong> Edits are stored in this browser only, so you can look at them
-        on the real page before anyone else sees them. To make them the site's, export the file
-        above and commit it — <code>public/site-content.json</code> for the words and pictures,{' '}
-        <code>public/app-links.json</code> for the store links. The site reads both at startup and
-        the next deploy carries them. Signing in does not change this: a session token cannot push
-        to the repository.
+        <strong>Publishing.</strong> Save keeps the edits in this browser only, so you can look at
+        them on the real page before anyone else sees them. Publish is what makes them the site's:{' '}
+        <code>public/site-content.json</code> for the words and pictures,{' '}
+        <code>public/app-links.json</code> for the store links.{' '}
+        {publisher?.mode === 'directory' ? (
+          <>
+            On this machine a publish writes the file into <code>public/</code>, and the commit that
+            deploys it is yours to make.
+          </>
+        ) : (
+          <>
+            A publish commits the file to <code>{publisher?.target || 'the repository'}</code>, and
+            the deploy follows that commit — the live site changes with nobody typing git commands.
+          </>
+        )}
       </Notice>
+
+      {publisher?.configured === false ? (
+        <Notice tone="warn">
+          <strong>Publishing is not set up on this deployment.</strong>{' '}
+          {publishErrorMessage({ error: 'publish_not_configured', missing: publisher.missing })}
+        </Notice>
+      ) : null}
     </>
   );
 }
@@ -798,12 +778,8 @@ function SignIn() {
   };
 
   return (
-    <form className="card" onSubmit={submit}>
+    <form className="card admin__login" onSubmit={submit}>
       <h2 className="text-xl">Sign in</h2>
-      <p className="mt-2 text-sm text-dim">
-        The admin credentials for this deployment. They are set in the environment, not here —
-        there is no sign-up on this screen and no password is stored in this browser.
-      </p>
 
       <div className="mt-6 flex flex-col gap-4">
         <Field label="Email">
@@ -818,7 +794,7 @@ function SignIn() {
           />
         </Field>
 
-        <Field label="Password" hint="Checked by this site’s own endpoint, never in the browser.">
+        <Field label="Password">
           <input
             className="input"
             type="password"
@@ -853,15 +829,28 @@ export default function Admin() {
     void refresh();
   }, []);
 
+  // A deployment that cannot sign anyone in is the one case that gets more than
+  // the card: with no endpoint or no credentials, a form would be a dead end, and
+  // the person looking at it needs to know which setting to add.
+  const canSignIn = phase === 'ready' && configured;
+
   return (
     <main className="wrap py-14 md:py-20">
-      <div className="max-w-4xl">
-        <span className="eyebrow">Admin</span>
-        <h1 className="mt-4 text-[clamp(2rem,5vw,3rem)]">The website</h1>
-        <p className="lead mt-4">
-          Every word, every picture and every store link on this site. Change something here and
-          the page follows it — the header, the footer and the privacy policy included.
-        </p>
+      <div className={signedIn ? 'max-w-4xl' : 'max-w-md'}>
+        {signedIn ? (
+          <>
+            <span className="eyebrow">Admin</span>
+            <h1 className="mt-4 text-[clamp(2rem,5vw,3rem)]">The website</h1>
+            <p className="lead mt-4">
+              Every word, every picture and every store link on this site. Change something here and
+              the page follows it — the header, the footer and the privacy policy included.
+            </p>
+          </>
+        ) : (
+          /* Nothing but the card and a label above it. The card carries its own
+             heading, so the page does not say "Sign in" twice. */
+          <span className="eyebrow">Admin</span>
+        )}
 
         {phase === 'loading' ? <Notice>Checking this deployment’s admin endpoint…</Notice> : null}
 
@@ -880,8 +869,8 @@ export default function Admin() {
           </Notice>
         ) : null}
 
-        {phase === 'ready' && configured && !signedIn ? (
-          <div className="mt-10">
+        {canSignIn && !signedIn ? (
+          <div className="mt-6">
             <SignIn />
           </div>
         ) : null}
@@ -892,30 +881,37 @@ export default function Admin() {
           </div>
         ) : null}
 
-        <Notice>
-          <strong>What this is.</strong> A real sign-in. The password is checked by this
-          deployment’s own function against a salted scrypt hash in the environment, and the browser
-          is given nothing but a short-lived signed token, kept in this tab. The hash and the
-          signing secret are never compiled into the site’s JavaScript — anything a browser can read
-          is public, which is exactly why the check moved off it.
-        </Notice>
+        {/* The explanation of what the sign-in is, and what editing does not do,
+            is for the person who is already in — it is not something to read
+            while trying to log in. */}
+        {signedIn ? (
+          <>
+            <Notice>
+              <strong>What this is.</strong> A real sign-in. The password was checked by this
+              deployment’s own function against a salted scrypt hash in the environment, and the
+              browser holds nothing but a short-lived signed token, in this tab. The hash and the
+              signing secret are never compiled into the site’s JavaScript — anything a browser can
+              read is public, which is exactly why the check moved off it.
+            </Notice>
 
-        <Notice tone="warn">
-          <strong>What it does not do.</strong> It does not let a signed-in admin change the live
-          site from here: the site's words come from the committed{' '}
-          <code>public/site-content.json</code> and its links from{' '}
-          <code>public/app-links.json</code>. One more step — a public <code>GET</code> and an
-          authenticated <code>PUT</code> that commits the file — would make Save publish, and that
-          is a change to this repository and a redeploy.
-        </Notice>
+            <Notice tone="warn">
+              <strong>What a publish is.</strong> Pressing Publish commits{' '}
+              <code>public/site-content.json</code> and <code>public/app-links.json</code> to this
+              site's repository, and the deployment builds from that commit — the same auto-deploy
+              a push would have caused. What it cannot do is anything else: the session can sign in
+              and it can publish those two paths, and every other path in the repository is refused
+              by the endpoint that would have to write it.
+            </Notice>
 
-        <Notice>
-          <strong>What stays in the code.</strong> The page's structure: which sections exist, in
-          what order, which half of the screen their text sits in, and how the phones are arranged.
-          A published file that could add, remove or reorder whole sections could make the page
-          describe a product that does not exist, and nothing here would catch it. Words, pictures
-          and links are yours; the shape of the page is not.
-        </Notice>
+            <Notice>
+              <strong>What stays in the code.</strong> The page's structure: which sections exist,
+              in what order, which half of the screen their text sits in, and how the phones are
+              arranged. A published file that could add, remove or reorder whole sections could
+              make the page describe a product that does not exist, and nothing here would catch
+              it. Words, pictures and links are yours; the shape of the page is not.
+            </Notice>
+          </>
+        ) : null}
       </div>
     </main>
   );

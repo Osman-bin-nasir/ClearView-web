@@ -13,15 +13,25 @@
  * own password in the browser and compared it there, which meant the "admin"
  * was whoever could open devtools on their own machine.
  *
- * WHAT SIGNING IN DOES NOT DO: publish the links. The admin edits them here and
- * exports `app-links.json`, which is committed to the site — a push to the
- * repository, which a token cannot grant. The screen says so.
+ * WHAT THE TOKEN IS FOR: admitting a publish. The same signature is checked by
+ * `api/admin/publish.js` before it commits a document to the repository, so
+ * signing in is the one gate in front of both screens. What the token cannot do
+ * is decide what may be published: the file allowlist and the shape checks live
+ * on the server, and a session that asked to write anywhere else would be
+ * refused there.
  */
 
 import { useSyncExternalStore } from 'react';
 
-/** Where the function is mounted. Root-relative: Vercel serves /api at the domain root. */
+/** Where the functions are mounted. Root-relative: Vercel serves /api at the domain root. */
 const ENDPOINT = '/api/admin/session';
+const PUBLISH_ENDPOINT = '/api/admin/publish';
+
+/** The two documents the site reads, and the tab each one belongs to. */
+export const PUBLISH_PATHS = Object.freeze({
+  content: 'public/site-content.json',
+  links: 'public/app-links.json',
+});
 
 /**
  * The signed session, on this device.
@@ -194,6 +204,96 @@ export function signOut() {
   emit();
 }
 
+// ── Publishing ───────────────────────────────────────────────────────────
+
+/**
+ * Can this deployment publish, and where to?
+ *
+ * Read when the editor mounts so the screen can say `publishing is not set up`
+ * before someone has typed a paragraph and pressed the button, rather than
+ * afterwards. `null` means the question could not be asked at all — no endpoint
+ * (a static upload with no functions) or no network.
+ */
+export async function fetchPublishState() {
+  try {
+    const response = await fetch(PUBLISH_ENDPOINT, { cache: 'no-store' });
+    if (!response.ok) return null;
+    const body = await response.json();
+    return {
+      configured: body.configured === true,
+      // 'github' on the deployment, 'directory' under `npm run dev`.
+      mode: typeof body.mode === 'string' ? body.mode : '',
+      target: typeof body.target === 'string' ? body.target : '',
+      missing: Array.isArray(body.missing) ? body.missing : [],
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Publish one document.
+ *
+ * The token goes in the header — the body is the document and nothing else, and
+ * a credential in a body is a credential in a log. Returns `{ ok: true, mode,
+ * target, published }` or `{ ok: false, error, … }` with `error` a key into
+ * PUBLISH_ERRORS.
+ */
+export async function publish({ kind, content }) {
+  const path = PUBLISH_PATHS[kind];
+  if (!path) return { ok: false, error: 'failed' };
+
+  const session = readSession();
+  if (!session) return { ok: false, error: 'signed_out' };
+
+  let response;
+  try {
+    response = await fetch(PUBLISH_ENDPOINT, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        authorization: `Bearer ${session.token}`,
+      },
+      body: JSON.stringify({ files: [{ path, content }] }),
+      cache: 'no-store',
+    });
+  } catch {
+    return { ok: false, error: 'unreachable' };
+  }
+
+  let body = {};
+  try {
+    body = await response.json();
+  } catch {
+    /* a host that answers with HTML is not this endpoint */
+  }
+
+  if (response.status === 401) {
+    // The session was refused, so it is not a session any more: drop it, and the
+    // screen goes back to the sign-in card rather than offering a button that
+    // cannot work.
+    signOut();
+    return { ok: false, error: 'invalid_token' };
+  }
+
+  if (!response.ok) {
+    return {
+      ok: false,
+      error: typeof body.error === 'string' ? body.error : 'failed',
+      reason: typeof body.reason === 'string' ? body.reason : '',
+      missing: Array.isArray(body.missing) ? body.missing : [],
+      detail: typeof body.detail === 'string' ? body.detail : '',
+    };
+  }
+
+  return {
+    ok: true,
+    mode: typeof body.mode === 'string' ? body.mode : '',
+    target: typeof body.target === 'string' ? body.target : '',
+    published: Array.isArray(body.published) ? body.published : [],
+  };
+}
+
 // ── What the screen says ─────────────────────────────────────────────────
 
 /** One sentence per refusal, for the form. */
@@ -223,14 +323,62 @@ export function adminErrorMessage(result) {
     const parts = [];
     if (result.missing?.length) parts.push(`set ${list(result.missing)}`);
     if (result.unusable?.length) {
+      // A plaintext password in ADMIN_PASSWORD_HASH is the mistake people make,
+      // and the one refusal where "not a value this endpoint accepts" would send
+      // them looking for a typo instead of the thing that is actually wrong.
+      const wrong = list(result.unusable);
+      const passwordPasted = result.unusable.includes('ADMIN_PASSWORD_HASH');
       parts.push(
-        `replace ${list(result.unusable)}, which is set but not to a value this endpoint accepts`,
+        passwordPasted
+          ? `replace ${wrong} — it has to be a hash, not the password (a password there is refused, not compared)`
+          : `replace ${wrong}, which is set but not to a value this endpoint accepts`,
       );
     }
     const advice = parts.length
       ? `In the environment, ${parts.join(', and ')}, then redeploy — or restart the dev server.`
       : 'Add ADMIN_EMAIL, ADMIN_PASSWORD_HASH and ADMIN_SESSION_SECRET to the environment, then redeploy — or restart the dev server.';
-    return `${ADMIN_ERRORS.not_configured} ${advice} Generate the values with node tools/make-admin-hash.mjs.`;
+    return `${ADMIN_ERRORS.not_configured} ${advice} Make them with npm run admin:set -- you@example.com, or node tools/make-admin-hash.mjs.`;
   }
   return ADMIN_ERRORS[result?.error] ?? ADMIN_ERRORS.failed;
+}
+
+/** One sentence per refusal a publish can come back with. */
+export const PUBLISH_ERRORS = {
+  unreachable:
+    'The publish endpoint did not answer. The site may be a static upload with no functions behind it.',
+  signed_out: 'That session has ended. Sign in again.',
+  invalid_token: 'That session expired while you were editing. Sign in again — your edits are still here.',
+  not_configured:
+    'This deployment has no admin credentials, so there is nothing to publish with.',
+  publish_not_configured:
+    'This deployment cannot publish yet: it has nowhere to put the file.',
+  bad_request: 'That document was refused. Export it, check it, and try again.',
+  github_failed: 'GitHub refused the commit.',
+  publish_failed: 'The publish did not complete. Try again.',
+  failed: 'The publish did not complete. Try again.',
+};
+
+/**
+ * The sentence to show when a publish fails.
+ *
+ * The two "not configured" cases name the variables to set, because that is the
+ * difference between a feature that is broken and a feature that was never given
+ * a credential; `github_failed` carries GitHub's own words, which name the
+ * permission or the conflict and are worth more than anything invented here.
+ */
+export function publishErrorMessage(result) {
+  const list = (names) =>
+    names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names.at(-1)}` : names[0];
+
+  if (result?.error === 'not_configured' || result?.error === 'publish_not_configured') {
+    const names = result.missing ?? [];
+    const advice = names.length
+      ? `Add ${list(names)} to the environment, then redeploy — or restart the dev server.`
+      : 'Add GITHUB_TOKEN and GITHUB_REPO to the environment, then redeploy.';
+    return `${PUBLISH_ERRORS[result.error]} ${advice} The token needs Contents: read and write on this repository.`;
+  }
+  if (result?.error === 'github_failed' && result.detail) {
+    return `${PUBLISH_ERRORS.github_failed} ${result.detail}`;
+  }
+  return PUBLISH_ERRORS[result?.error] ?? PUBLISH_ERRORS.failed;
 }

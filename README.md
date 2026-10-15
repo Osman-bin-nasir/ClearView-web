@@ -4,12 +4,12 @@ The organisation's site for **ClearView** — one brand, three apps: the Android
 the iOS app and the Chrome extension. It presents all three, says where each one is
 downloaded from, and links to the privacy policy and the admin screen.
 
-**One download button, and it is the whole answer.** The hero, the header and the
-closing section each carry a single **Download** button that opens the three apps with
-their stores, marking the ones that are not out yet as coming soon. There is no
-"Get it on Play" beside a "See all three apps", and no sentence explaining which
-platforms exist — the menu says it once, where the visitor is already looking (§One
-button).
+**One download button, and it scrolls to the answer.** The hero and the closing section
+carry a single **Download** button that takes the visitor down to the three app cards,
+where each platform's store, status and note already are. The header carries none — it
+is the wordmark and four links. There is no "Get it on Play" beside a "See all three
+apps", no popover repeating the cards, and no sentence explaining which platforms
+exist (§One button).
 
 Dark, quiet and product-render shaped: near-black canvas (`#0B1214`) with a single
 neon-teal accent (`#00E0D2`), Montserrat headings, Inter body copy, and screenshots
@@ -28,19 +28,27 @@ deliberate: a visitor finds out what runs where before reading phone features.
 
 ## One button
 
-The hero's copy and every button on the page come from the content store (§Changing
-copy or screenshots), and the download button is one component used three times:
+The hero's copy and both buttons come from the content store (§Changing copy or
+screenshots). The button itself is a plain link — `#platforms` — and it appears twice:
 
 | Where | What it is |
 | --- | --- |
 | the hero | the primary button under the paragraph |
-| the header | the same menu, small and ghosted |
 | the closing section | the same button again |
+| the header | **nothing.** No button, no menu — the wordmark and four links |
 
-Clicking it opens a small panel: one row per app, with the app's own mark, its device
-and store, and — for a platform that is not live — *Coming soon* and **no link at all**.
-Escape closes it, as does a click anywhere else. An unreleased app renders as a row
-rather than a button that 404s, which is the same rule the platform cards follow.
+The click scrolls to the three platform cards. Those are the page's real answer to "where
+do I get this": a card each, with the app's mark, its device, its store, an *Available
+now* / *Coming soon* pill and the note explaining what it is. A popover that repeated
+those three rows was the same information twice, in the smaller of the two places.
+
+Because the cards render **no link at all** for a platform that is not live, the scroll
+also means nobody can reach a store URL that 404s: the only link on the page for an
+unreleased app is the one that does not exist.
+
+The header's own destinations — Platforms, Protection, Screens, Privacy — are edited in
+the admin's **Brand & header** group; there is no header button label to edit, because
+there is no header button.
 
 ## The three apps, and their links
 
@@ -50,7 +58,7 @@ place** — `src/data/links.js`, with a published copy at `public/app-links.json
 | Layer | Who writes it | Wins over |
 | --- | --- | --- |
 | `DEFAULT_PLATFORMS` in `src/data/links.js` | the developer | — |
-| `public/app-links.json` | the **admin screen** (exported), then committed | the defaults |
+| `public/app-links.json` | the **admin screen** (Publish), and the commit it makes | the defaults |
 | `localStorage` | the admin screen, unpublished, on that browser | both |
 
 The file is merged over the built-in defaults per app `id`, and only `url`, `status`
@@ -82,11 +90,18 @@ environment** — there is no sign-up on the screen, and nothing to create on a 
 visit.
 
 ```bash
-npm run admin:hash -- you@example.com     # prints the three variables to set
+npm run admin:set -- you@example.com      # local: writes the three variables into .env
+npm run admin:hash -- you@example.com     # deploy: prints the three variables to set
 ```
 
-Paste the three lines into `.env` for local work, and into **Vercel → Settings →
-Environment Variables** for the live site. `.env` is ignored by git, deliberately: a
+`admin:set` asks for the password, hashes it, and writes `ADMIN_EMAIL`,
+`ADMIN_PASSWORD_HASH` and `ADMIN_SESSION_SECRET` into `.env` itself, leaving every other
+line of that file alone. Then restart `npm run dev` — the variables are read once, at
+startup — and sign in with the address and the password you just typed. `admin:hash`
+prints the same three lines instead, for **Vercel → Settings → Environment Variables**,
+where there is no file to write.
+
+`.env` is ignored by git, deliberately: a
 committed `ADMIN_PASSWORD_HASH` is a password hash in a public repository, and a
 committed `ADMIN_SESSION_SECRET` would let anyone mint an admin token.
 
@@ -132,9 +147,12 @@ in this project:
 - **Guessing is slowed, not stopped.** Five failures from one address lock that address
   out for fifteen minutes, in the memory of the function instance. Vercel runs several
   and recycles them, so treat it as a speed bump — the length of the password is the real
-  defence, which is why the generator insists on twelve characters. `--check` tests a
-  password against the configured hash:
-  `npm run admin:hash -- --check`.
+  defence. The generator accepts `MIN_PASSWORD` = eight characters and suggests twelve,
+  saying why when you choose fewer: the lockout only applies to guesses made against the
+  running server, so anyone holding the hash can test guesses against it offline for as
+  long as they like. Eight is a floor, not a recommendation. `--check` tests a password
+  against the configured hash:
+  `npm run admin:check`.
 - **It fails closed.** A plaintext password pasted into `ADMIN_PASSWORD_HASH`, a hash in
   the wrong shape, a short signing secret, or a missing variable: the screen says which
   variable is wrong and offers no form. It never guesses what a value was meant to be.
@@ -143,37 +161,85 @@ in this project:
 local commands behave like the deployment rather than answering the Sign in button with a
 404. Nothing is added to the build by it — the output is still a static bundle.
 
-### Publishing is still a commit
+### Publishing is a commit, and the deploy follows it
 
-Signing in does not change the live site. The admin edits, **Save** keeps the draft in
-that browser, **Preview on the site** opens the real page with the draft applied, and
-**Export** writes the file to be committed — `site-content.json` for the words and
-pictures, `app-links.json` for the store links. The next deploy carries them. The screen
-says so on itself, because an admin who believes they changed a live site and did not is
-worse off than one who was told how it works.
+Three buttons, and each one is a different distance from the public:
+
+- **Save** — keeps the draft in this browser, so you can look at it on the real page
+  before anyone else sees it. Nothing has left your machine.
+- **Preview** — saves, then opens the real page in a new tab with the draft applied.
+- **Publish** — hands the document to this deployment's function
+  (`api/admin/publish.js`), which commits it to the repository. The repository is
+  connected to Vercel, so that commit **is** the deploy: the live site follows in about a
+  minute, with nobody typing git commands.
+
+| Variable | What it is |
+| --- | --- |
+| `GITHUB_TOKEN` | a fine-grained token on this repository with **Contents: read and write** |
+| `GITHUB_REPO` | `owner/name` — which repository the commit goes to |
+| `GITHUB_BRANCH` | `main`, unless you deploy from another branch |
+
+With none of them set the screen says so: it asks `GET /api/admin/publish` when the
+editor opens, disables Publish, and names the variables that are missing — the same way it
+reports an unconfigured sign-in, and for the same reason.
+
+Signing in is the gate. The signed token is verified before a commit, with the same module
+(`server/admin-auth.js`) that mints and checks it, so there is one implementation of the
+check rather than two. What may be published is decided on the server: exactly two paths,
+`public/site-content.json` and `public/app-links.json`, each of which must parse as JSON
+of the shape it is supposed to be. A session cannot write anywhere else in the repository —
+otherwise it would be a great deal more authority than "this person edits the website".
+
+**Under `npm run dev` the same endpoint writes the file instead of committing it.** A
+laptop has no repository to commit to, and committing the live branch from one would deploy
+whatever was half-finished at the time. So a local publish writes `public/site-content.json`
+(or `app-links.json`) into the checkout, and the commit that deploys it stays yours to
+make. Both servers print which of the two you are looking at.
 
 The draft is this browser's, not the session's: signing out does not discard work, and a
-different browser starts from the published copy. **Revert to published** is the way back.
-
-Making **Save** publish would need somewhere to put the file: a public `GET` plus an
-authenticated `PUT` backed by a store, or a commit made through the GitHub API. That is a
-change to this repository and a redeploy, not a setting.
+different browser starts from the published copy. A publish deliberately does **not** clear
+the draft — the page has not rebuilt yet, so the local copy is still the newest thing in
+the tab, and discarding it would look like the publish had undone the edit.
 
 ## Run it
 
 ```bash
 npm install
-cp .env.example .env                # then fill it in — see §The admin screen
-npm run admin:hash -- you@example.com
+npm run admin:set -- you@example.com   # writes .env — see §The admin screen
 npm run dev        # http://localhost:5173
 npm run build      # writes dist/
 npm run preview    # serve the built site locally
 npm test           # the admin endpoint's tests (node:test, no browser needed)
 ```
 
-The two admin variables are read from `.env` by `vite.config.js` for `dev` and
+The three admin variables are read from `.env` by `vite.config.js` for `dev` and
 `preview` only, so the sign-in works locally without exporting anything. The landing page
-and the privacy policy need none of it.
+and the privacy policy need none of it. `.env.example` is the empty template; `admin:set`
+is what fills a real `.env` in, and it is the only thing in the project that writes one.
+
+Both servers print where an admin signs in and where a publish goes, under Vite's own
+banner:
+
+```
+  admin sign-in  admin@clearview.test — a different address or password: npm run admin:set -- you@example.com
+  publishing     writes the JSON into public/ here — the deployment commits it to GitHub instead
+```
+
+The line is produced by calling the endpoint itself with a `GET`, so it cannot disagree
+with what the sign-in card does; an unconfigured environment prints the names of the
+variables it is missing instead. No value is ever printed.
+
+`#/admin` locally is one card: email, password, **Sign in**. With the three variables in
+`.env` it signs in on `npm run dev` and on `npm run preview` alike — the same handler
+Vercel calls, mounted on the dev server, so nothing about the local screen is a stand-in.
+With no `.env` the card is replaced by a notice naming the variables to set, because a
+form that cannot succeed is worse than being told why.
+
+The `.env` in this checkout holds a **local-only** pair, and the password that goes with
+it is nowhere on disk — it is only in the hash. `npm run admin:set -- you@example.com`
+replaces it with a pair of your choosing; nothing that pair signs is valid anywhere but
+this machine, so a deployment needs its own, made the same way and set in Vercel's
+environment rather than in this repository.
 
 ## Hosting
 
@@ -217,6 +283,9 @@ public/logo.png            the app mark, on its white tile (header + footer)
 public/favicon-32.png      the same mark, corners rounded, for the browser tab
 public/apple-touch-icon.png
 public/app-links.json      the PUBLISHED store links (see §The three apps)
+server/admin-auth.js       what both admin endpoints share: the environment, the session
+                           token, and the request plumbing. Outside api/ on purpose —
+                           every file in there becomes a route
 tools/make-logo.py         generates the three logo assets from temp/1.jpeg
 public/og.png              1200x630 social share card
 src/index.css              the only stylesheet — tokens, phone frames, glow,
@@ -232,16 +301,23 @@ src/data/links.js          the three apps, their store links and the override st
 src/data/admin.js          the admin's browser half: sign in, token, sign out — the
                            password is never checked here
 api/admin/session.js       the admin's server half: verifies the environment's hash and
-                           signs a session token. The only server-side code
-.env.example               the three admin variables, and where to put them
-tests/admin-api.test.js    the endpoint's tests, run with `npm test`
-tools/make-admin-hash.mjs  writes ADMIN_PASSWORD_HASH + ADMIN_SESSION_SECRET (--check
-                           tests a password against the hash that is configured)
+                           signs a session token
+api/admin/publish.js       commits a document to the repository (or, under npm run dev,
+                           writes it into public/). The only code that writes files
+.env.example               the admin variables and the three publishing ones
+api/                       the only server-side code in the project: two endpoints
+tests/admin-api.test.js    the sign-in endpoint's tests, run with `npm test`
+tests/admin-env.test.js    generates a credential into a throwaway file, then signs in with it
+tests/admin-publish.test.js the publish endpoint: who may, what may be written where, and
+                           the exact commit it makes (no network, no token, no commit)
+tools/make-admin-hash.mjs  writes ADMIN_PASSWORD_HASH + ADMIN_SESSION_SECRET, printing
+                           them or (--write, npm run admin:set) putting them into .env;
+                           --check tests a password against the configured hash
 src/hooks/useReveal.js     IntersectionObserver scroll reveals
 src/hooks/useHashRoute.js  the router: #/privacy, #/admin, and nothing else
-src/components/            Header, Hero, DownloadMenu, Platforms, Section, Cluster,
-                           Phone, Gallery, Lightbox, FinalCta, Footer,
-                           PrivacyPolicy, Admin, icons
+src/components/            Header, Hero, Platforms, Section, Cluster, Phone,
+                           Gallery, Lightbox, FinalCta, Footer, PrivacyPolicy,
+                           Admin, icons
 ```
 
 ### Routing
@@ -265,7 +341,7 @@ There are three layers, the same three the store links use:
 | Layer | Who writes it | Wins over |
 | --- | --- | --- |
 | `DEFAULT_SITE` in `src/data/site.js` | the developer | — |
-| `public/site-content.json` | the **admin screen** (exported), then committed | the defaults |
+| `public/site-content.json` | the **admin screen** (Publish), and the commit it makes | the defaults |
 | `localStorage` | the admin screen, unpublished, on that browser | both |
 
 The store links are **not** in `site.js` — where each app is downloaded from, and

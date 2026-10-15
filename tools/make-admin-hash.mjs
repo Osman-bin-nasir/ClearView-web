@@ -14,6 +14,15 @@
  * Vercel → Settings → Environment Variables for the live site. Neither belongs
  * in git (`.env` is ignored).
  *
+ *   node tools/make-admin-hash.mjs --write you@example.com
+ *   npm run admin:set -- you@example.com
+ *
+ * `--write` skips the pasting: it puts the same three variables into `.env`
+ * itself, leaving every other line in the file alone. Pasting three long values
+ * by hand is the step where a credential gets truncated, or where the password
+ * ends up in `ADMIN_PASSWORD_HASH` instead of the hash — which then looks
+ * exactly like a wrong password on the sign-in card.
+ *
  *   node tools/make-admin-hash.mjs --check
  *
  * `--check` answers the other question: is the hash in `ADMIN_PASSWORD_HASH`
@@ -29,7 +38,8 @@
 
 import { randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
 import { createInterface } from 'node:readline';
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 
 // Must match api/admin/session.js — a hash is only worth anything if both ends
 // agree on how to read it.
@@ -47,8 +57,18 @@ const ALGORITHM = 'scrypt';
  * three without quoting.
  */
 const SEPARATOR = ':';
-/** This is the only thing in front of the admin screen; guessing it must cost something. */
-const MIN_PASSWORD = 12;
+/**
+ * The shortest password this will accept.
+ *
+ * Eight, not twelve. Twelve is what the project recommends, but a floor that low
+ * cannot be the thing that stops someone: the way around a refused password is to
+ * paste the plaintext into `ADMIN_PASSWORD_HASH`, which the endpoint then refuses to
+ * compare against anything — a short password is better than a credential that does
+ * not work and a value nobody can explain. Below eight it stops.
+ */
+const MIN_PASSWORD = 8;
+/** What the project suggests, and the point below which this says so out loud. */
+const RECOMMENDED_PASSWORD = 12;
 
 const MAX_MEM = 128 * N * r * 2;
 
@@ -125,11 +145,23 @@ const finishAsking = () => rl?.close();
 
 // ── The two modes ────────────────────────────────────────────────────────
 
+/**
+ * The file the variables live in: `.env` beside this script, unless
+ * `CLEARVIEW_ENV_FILE` names somewhere else.
+ *
+ * The override is what lets the tests drive the whole path — generate, write,
+ * sign in with what was written — without touching a developer's own `.env`.
+ */
+function envPath() {
+  const override = String(process.env.CLEARVIEW_ENV_FILE ?? '').trim();
+  return override !== '' ? override : fileURLToPath(new URL('../.env', import.meta.url));
+}
+
 /** `.env` if it is there, so `--check` needs no exporting. */
 function envFile() {
   try {
     return Object.fromEntries(
-      readFileSync(new URL('../.env', import.meta.url), 'utf8')
+      readFileSync(envPath(), 'utf8')
         .split('\n')
         .map((line) => line.trim())
         .filter((line) => line !== '' && !line.startsWith('#'))
@@ -144,11 +176,57 @@ function envFile() {
   }
 }
 
-async function generate(email) {
+/** The three variables this project owns, in the order a reader wants them. */
+const ENV_KEYS = ['ADMIN_EMAIL', 'ADMIN_PASSWORD_HASH', 'ADMIN_SESSION_SECRET'];
+
+/**
+ * Put the values into the env file, replacing only the lines they own.
+ *
+ * Everything else in the file is left exactly as it was — comments, blank
+ * lines, and any variable that has nothing to do with the admin screen. The
+ * keys that are not there yet are appended under a heading, so a first run on a
+ * file that has no ADMIN_ variables reads as something deliberate rather than
+ * three stray lines at the bottom.
+ */
+function writeEnv(values) {
+  const path = envPath();
+  let text = '';
   try {
-    const password = await ask(`Admin password for ${email} (min ${MIN_PASSWORD} characters): `, {
-      secret: true,
-    });
+    text = readFileSync(path, 'utf8');
+  } catch {
+    text = ''; // No file yet: this run creates it.
+  }
+
+  const pending = new Map(Object.entries(values));
+  const lines = text.split('\n').map((line) => {
+    const name = /^\s*([A-Z0-9_]+)\s*=/.exec(line)?.[1];
+    if (name === undefined || !pending.has(name)) return line;
+    const value = pending.get(name);
+    pending.delete(name);
+    return `${name}=${value}`;
+  });
+
+  if (pending.size > 0) {
+    while (lines.length > 0 && lines.at(-1).trim() === '') lines.pop();
+    if (lines.length > 0) lines.push('');
+    else lines.push('# ClearView admin credentials, written by tools/make-admin-hash.mjs.');
+    for (const name of ENV_KEYS) {
+      if (pending.has(name)) lines.push(`${name}=${pending.get(name)}`);
+    }
+  }
+
+  writeFileSync(path, `${lines.join('\n')}\n`);
+  return path;
+}async function generate(email, { write = false } = {}) {
+  try {
+    // Name the file in the prompt. A `--write` that lands on a different file than
+    // the one you had in mind is the mistake this line exists to prevent, and it is
+    // cheaper to read than to reconstruct.
+    const where = write ? ` (writing to ${envPath()})` : '';
+    const password = await ask(
+      `Admin password for ${email}${where} — min ${MIN_PASSWORD}, ${RECOMMENDED_PASSWORD} suggested: `,
+      { secret: true },
+    );
     if (password.length < MIN_PASSWORD) {
       console.error(
         `\nThat is ${password.length} characters. Use at least ${MIN_PASSWORD} — this password is the only thing standing in front of the admin screen.`,
@@ -163,15 +241,54 @@ async function generate(email) {
       return;
     }
 
+    if (password.length < RECOMMENDED_PASSWORD) {
+      console.warn(
+        [
+          '',
+          `${password.length} characters is short for the only password in front of the admin screen.`,
+          `${MIN_PASSWORD} is the floor this tool will accept; ${RECOMMENDED_PASSWORD} or more is what the project suggests.`,
+          'Why it matters: anyone who gets hold of the hash can test guesses against it offline, with no rate',
+          'limit — the lockout only slows down guesses made against the running server. A passphrase of a few',
+          'unrelated words is easier to remember than random characters and takes far longer to search.',
+        ].join('\n'),
+      );
+    }
+
     const salt = randomBytes(SALT_BYTES);
+    const values = {
+      ADMIN_EMAIL: email,
+      ADMIN_PASSWORD_HASH: encode(password, salt),
+      ADMIN_SESSION_SECRET: randomBytes(32).toString('base64url'),
+    };
+
+    if (write) {
+      const path = writeEnv(values);
+      console.log(
+        [
+          '',
+          `Wrote ADMIN_EMAIL, ADMIN_PASSWORD_HASH and ADMIN_SESSION_SECRET to ${path}.`,
+          '',
+          `Sign in as ${email} with the password you just typed.`,
+          'Anything else already in that file was left alone.',
+          '',
+          'Notes:',
+          '  · Restart the dev server if it is already running: it reads the file at startup.',
+          '  · The hash is salted, so running this again replaces it with a different value for the same password.',
+          '  · ADMIN_SESSION_SECRET signs the session tokens; changing it signs every admin out.',
+          '  · This is a local credential. Make a separate one for the deployment and set it in Vercel → Settings → Environment Variables.',
+          '  · The password was not written to the file, and neither .env nor the hash belongs in git.',
+          '',
+        ].join('\n'),
+      );
+      return;
+    }
+
     console.log(
       [
         '',
         'Paste these into .env, and into Vercel → Settings → Environment Variables:',
         '',
-        `ADMIN_EMAIL=${email}`,
-        `ADMIN_PASSWORD_HASH=${encode(password, salt)}`,
-        `ADMIN_SESSION_SECRET=${randomBytes(32).toString('base64url')}`,
+        ...ENV_KEYS.map((name) => `${name}=${values[name]}`),
         '',
         'Notes:',
         '  · The hash uses ":" as its separator on purpose: "$" and "#" mean something to .env files.',
@@ -233,19 +350,43 @@ async function check() {
   }
 }
 
-const [argument] = process.argv.slice(2);
+const argv = process.argv.slice(2);
+const write = argv.includes('--write');
+const confirmed = argv.includes('--yes');
+const argument = argv.find((value) => !value.startsWith('--'));
 
-if (argument === '--check') {
+/**
+ * Refuse a write that nobody is watching.
+ *
+ * A password arriving on a pipe means a script is driving this tool, and a script
+ * driving it at a credential file is exactly how a real `.env` gets replaced by a
+ * throwaway one — the write succeeds, the file looks right, and the credential it
+ * displaced is gone. `--yes` says the unattended write is the intent.
+ */
+if (write && !confirmed && !interactive) {
+  console.error(
+    [
+      'Refusing to write from a pipe without --yes.',
+      `The file it would replace is ${envPath()}, and the password it just read came from a script rather than a person.`,
+      'Pass --yes if replacing that file is what you meant.',
+    ].join('\n'),
+  );
+  process.exit(1);
+}
+
+if (argv.includes('--check')) {
   await check();
 } else if (!argument || !argument.includes('@')) {
   console.error(
     [
       'Usage:',
-      '  node tools/make-admin-hash.mjs you@example.com   make ADMIN_EMAIL, ADMIN_PASSWORD_HASH, ADMIN_SESSION_SECRET',
-      '  node tools/make-admin-hash.mjs --check           test a password against ADMIN_PASSWORD_HASH',
+      '  node tools/make-admin-hash.mjs you@example.com         make ADMIN_EMAIL, ADMIN_PASSWORD_HASH, ADMIN_SESSION_SECRET and print them',
+      '  node tools/make-admin-hash.mjs --write you@example.com put the same three into .env instead of printing them',
+      '        (add --yes when the password comes from a pipe rather than a terminal)',
+      '  node tools/make-admin-hash.mjs --check                 test a password against ADMIN_PASSWORD_HASH',
     ].join('\n'),
   );
   process.exitCode = 1;
 } else {
-  await generate(argument.trim().toLowerCase());
+  await generate(argument.trim().toLowerCase(), { write });
 }

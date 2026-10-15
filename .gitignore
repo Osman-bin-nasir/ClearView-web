@@ -4,13 +4,6 @@ dist
 *.local
 .vite
 
-# Admin credentials for api/admin/session.js. A committed ADMIN_PASSWORD_HASH
-# would be a password hash in a public repository, and a committed
-# ADMIN_SESSION_SECRET would let anyone mint an admin token. .env.example is the
-# template.
-.env
-.env.local
-.env.*.local
-
 # Fonts downloaded on demand by tools/make-og.py
 tools/.fonts
+.env

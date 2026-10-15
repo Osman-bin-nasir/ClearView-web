@@ -1,11 +1,12 @@
-import DownloadMenu from './DownloadMenu.jsx';
+import { DownloadIcon } from './icons.jsx';
 import { useSite } from '../data/site.js';
 
 /**
  * Section 9 — closing call to action. Left-aligned with the button opposite it.
  *
- * One button, like the hero: the same Download menu, so the last thing on the
- * page asks the same question as the first and answers it the same way.
+ * The same single button as the hero, scrolling to the same three cards: a
+ * visitor who has read to the bottom is a click away from the top of the page's
+ * answer, rather than being sent back to hunt for it.
  */
 export default function FinalCta() {
   const site = useSite();
@@ -23,7 +24,10 @@ export default function FinalCta() {
             </h2>
 
             <div className="flex shrink-0 flex-wrap gap-3">
-              <DownloadMenu label={site.closing.cta} />
+              <a className="btn btn--primary" href="#platforms">
+                <DownloadIcon />
+                {site.closing.cta}
+              </a>
             </div>
           </div>
         </div>
