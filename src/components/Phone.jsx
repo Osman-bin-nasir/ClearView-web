@@ -5,7 +5,7 @@
  * `.phone` in index.css. Real width/height come from the screen metadata so
  * the browser reserves the right space before the lazy image arrives.
  *
- * @param {object}  props.screen   Entry from `screen()` in data/content.js
+ * @param {object}  props.screen   Entry from `screen()` in data/site.js
  * @param {boolean} props.priority true for above-the-fold phones (hero)
  */
 export default function Phone({ screen, priority = false, className = '', style }) {

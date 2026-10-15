@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "updatedAt": "2026-10-15T00:00:00.000Z",
+  "links": [
+    {
+      "id": "android",
+      "name": "ClearView for Android",
+      "store": "Google Play",
+      "status": "live",
+      "url": "https://play.google.com/store/apps/details?id=com.muddassir.clearview",
+      "note": "Protection, Media, GoodPost, Productivity and Quran — the whole app, with Android’s device-level blocking."
+    },
+    {
+      "id": "ios",
+      "name": "ClearView for iOS",
+      "store": "App Store",
+      "status": "soon",
+      "url": "https://apps.apple.com/us/app/clearview/id0000000000",
+      "note": "The same app built natively in SwiftUI for iOS 18 and later. In development — no store link exists yet."
+    },
+    {
+      "id": "chrome",
+      "name": "ClearView for Chrome",
+      "store": "Chrome Web Store",
+      "status": "soon",
+      "url": "https://chromewebstore.google.com/detail/clearview/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "note": "The browser half: explicit sites and searches, YouTube ads and Shorts, blocked channels and Brain Bot filtering. In review."
+    }
+  ]
+}

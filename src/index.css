@@ -584,6 +584,676 @@
     letter-spacing: 0.18em;
     color: var(--color-teal);
   }
+
+  /* -------------------------------------------------------------------------
+     The download menu
+     One button, a small panel of the three apps. Positioned against the
+     button that opened it, so it works in the header, the hero and the
+     closing section without three sets of rules.
+  ------------------------------------------------------------------------- */
+  .dl {
+    position: relative;
+    display: inline-flex;
+  }
+
+  .dl--right .dl__menu {
+    left: auto;
+    right: 0;
+  }
+
+  .dl__button {
+    cursor: pointer;
+  }
+
+  .dl__caret {
+    font-size: 0.7em;
+    line-height: 1;
+    transition: transform 0.22s ease;
+  }
+
+  .dl__caret.is-open {
+    transform: rotate(180deg);
+  }
+
+  .dl__menu {
+    position: absolute;
+    top: calc(100% + 0.6rem);
+    left: 0;
+    z-index: 60;
+    width: min(20rem, calc(100vw - 2.5rem));
+    padding: 0.5rem;
+    border: 1px solid var(--color-edge);
+    border-radius: 16px;
+    background: color-mix(in srgb, var(--color-ink-2) 96%, transparent);
+    backdrop-filter: blur(10px);
+    box-shadow: 0 30px 70px -30px rgba(0, 0, 0, 0.9), 0 0 0 1px rgba(0, 224, 210, 0.06);
+    animation: dl-in 0.16s ease-out;
+  }
+
+  @keyframes dl-in {
+    from {
+      opacity: 0;
+      transform: translateY(-6px);
+    }
+  }
+
+  .dl__title {
+    padding: 0.5rem 0.7rem 0.4rem;
+    font-family: var(--font-display);
+    font-size: 0.66rem;
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--color-dim);
+  }
+
+  .dl__row {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+    padding: 0.7rem;
+    border-radius: 12px;
+    text-decoration: none;
+    color: var(--color-mist);
+    transition: background-color 0.16s ease;
+  }
+
+  .dl__row:hover {
+    background: rgba(255, 255, 255, 0.05);
+  }
+
+  .dl__row--wait {
+    color: var(--color-dim);
+    cursor: default;
+  }
+
+  .dl__row--wait:hover {
+    background: transparent;
+  }
+
+  .dl__mark {
+    display: grid;
+    place-items: center;
+    flex: 0 0 auto;
+    width: 36px;
+    height: 36px;
+    border-radius: 11px;
+    border: 1px solid var(--color-edge);
+    background: rgba(0, 224, 210, 0.05);
+    color: var(--color-teal);
+  }
+
+  .dl__row--wait .dl__mark {
+    color: var(--color-dim);
+    background: rgba(255, 255, 255, 0.02);
+  }
+
+  .dl__text {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .dl__name {
+    display: block;
+    font-family: var(--font-display);
+    font-size: 0.9rem;
+    font-weight: 700;
+  }
+
+  .dl__meta {
+    display: block;
+    font-size: 0.76rem;
+    color: var(--color-dim);
+  }
+
+  .dl__go {
+    flex: 0 0 auto;
+    font-size: 0.9rem;
+    color: var(--color-teal);
+  }
+
+  /* -------------------------------------------------------------------------
+     Platform cards (the three apps)
+  ------------------------------------------------------------------------- */
+  .pcard {
+    display: flex;
+    flex-direction: column;
+    gap: 0.9rem;
+    padding: 1.4rem;
+    border: 1px solid var(--color-edge);
+    border-radius: 20px;
+    background: var(--color-ink-2);
+  }
+
+  /* The live app is the only card that gets the accent edge. */
+  .pcard--live {
+    border-color: var(--color-edge-teal);
+    box-shadow: 0 24px 60px -34px rgba(0, 224, 210, 0.5);
+  }
+
+  .pcard__head {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+  }
+
+  .pcard__mark {
+    display: grid;
+    place-items: center;
+    flex: 0 0 auto;
+    width: 40px;
+    height: 40px;
+    border-radius: 13px;
+    border: 1px solid var(--color-edge);
+    background: rgba(0, 224, 210, 0.06);
+    color: var(--color-teal);
+  }
+
+  .pcard__name {
+    font-family: var(--font-display);
+    font-size: 1rem;
+    font-weight: 700;
+  }
+
+  .pcard__device {
+    font-size: 0.78rem;
+    color: var(--color-dim);
+  }
+
+  .pcard__note {
+    flex: 1;
+    font-size: 0.9rem;
+    line-height: 1.6;
+    color: var(--color-dim);
+  }
+
+  .pcard__cta {
+    display: flex;
+    align-items: flex-start;
+  }
+
+  .pcard__cta .btn {
+    justify-content: center;
+    text-align: center;
+    white-space: normal;
+    line-height: 1.35;
+  }
+
+  /* Status pill: the one place a platform's availability is stated in words. */
+  .pill {
+    align-self: flex-start;
+    padding: 0.28rem 0.7rem;
+    border-radius: 999px;
+    font-family: var(--font-display);
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  .pill--live {
+    background: rgba(0, 224, 210, 0.12);
+    border: 1px solid var(--color-edge-teal);
+    color: var(--color-teal);
+  }
+
+  .pill--soon {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--color-edge);
+    color: var(--color-dim);
+  }
+
+  /* A button-shaped thing that is deliberately not a link yet. */
+  .btn--wait {
+    border-style: dashed;
+    border-color: var(--color-edge);
+    color: var(--color-dim);
+    background: transparent;
+    cursor: default;
+  }
+
+  .btn--wait:hover {
+    transform: none;
+    box-shadow: none;
+    background: transparent;
+    border-color: var(--color-edge);
+  }
+
+  /* -------------------------------------------------------------------------
+     Footer link columns
+  ------------------------------------------------------------------------- */
+  .foot__title {
+    font-family: var(--font-display);
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--color-dim);
+  }
+
+  .foot__list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.7rem;
+    margin-top: 1rem;
+    font-size: 0.9rem;
+  }
+
+  .foot__list a {
+    color: var(--color-mist);
+    text-decoration: none;
+    border-bottom: 1px solid transparent;
+    transition: border-color 0.2s ease, color 0.2s ease;
+  }
+
+  .foot__list a:hover {
+    color: var(--color-teal);
+    border-bottom-color: var(--color-edge-teal);
+  }
+
+  .foot__meta {
+    display: block;
+    margin-top: 0.15rem;
+    font-size: 0.75rem;
+    color: var(--color-dim);
+  }
+
+  /* -------------------------------------------------------------------------
+     Long-form text: the privacy policy
+  ------------------------------------------------------------------------- */
+  .prose {
+    color: var(--color-dim);
+    font-size: 0.95rem;
+    line-height: 1.7;
+  }
+
+  .prose__section + .prose__section {
+    margin-top: 2.5rem;
+    padding-top: 2.5rem;
+    border-top: 1px solid var(--color-edge);
+  }
+
+  .prose h2 {
+    font-family: var(--font-display);
+    font-size: 1.15rem;
+    color: var(--color-mist);
+    margin-bottom: 0.9rem;
+  }
+
+  .prose ul {
+    display: flex;
+    flex-direction: column;
+    gap: 0.7rem;
+    padding-left: 1.1rem;
+    list-style: none;
+  }
+
+  .prose li {
+    position: relative;
+  }
+
+  .prose li::before {
+    content: "";
+    position: absolute;
+    left: -1.1rem;
+    top: 0.62rem;
+    width: 5px;
+    height: 5px;
+    border-radius: 999px;
+    background: var(--color-teal);
+    opacity: 0.7;
+  }
+
+  .prose strong {
+    color: var(--color-mist);
+  }
+
+  .prose code {
+    padding: 0.1rem 0.35rem;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.05);
+    font-size: 0.85em;
+  }
+
+  .prose p + ul,
+  .prose p + p {
+    margin-top: 0.9rem;
+  }
+
+  /* -------------------------------------------------------------------------
+     Forms and the admin screen
+  ------------------------------------------------------------------------- */
+  .card {
+    padding: 1.6rem;
+    border: 1px solid var(--color-edge);
+    border-radius: 22px;
+    background: var(--color-ink-2);
+  }
+
+  .field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+  }
+
+  .field__label {
+    font-family: var(--font-display);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--color-dim);
+  }
+
+  .field__hint {
+    font-size: 0.78rem;
+    color: var(--color-dim);
+  }
+
+  .input {
+    width: 100%;
+    padding: 0.7rem 0.85rem;
+    border: 1px solid var(--color-edge);
+    border-radius: 12px;
+    background: var(--color-ink);
+    color: var(--color-mist);
+    font: inherit;
+    font-size: 0.92rem;
+  }
+
+  .input:focus {
+    outline: none;
+    border-color: var(--color-edge-teal);
+    box-shadow: 0 0 0 3px rgba(0, 224, 210, 0.12);
+  }
+
+  .input--warn {
+    border-color: rgba(255, 176, 32, 0.55);
+  }
+
+  select.input {
+    appearance: none;
+    background-image: linear-gradient(45deg, transparent 50%, var(--color-dim) 50%),
+      linear-gradient(135deg, var(--color-dim) 50%, transparent 50%);
+    background-position: calc(100% - 18px) 50%, calc(100% - 13px) 50%;
+    background-size: 5px 5px, 5px 5px;
+    background-repeat: no-repeat;
+    padding-right: 2.2rem;
+  }
+
+  textarea.input {
+    resize: vertical;
+    min-height: 4.5rem;
+    line-height: 1.55;
+  }
+
+  .notice {
+    margin-top: 1.25rem;
+    padding: 0.9rem 1.1rem;
+    border: 1px solid var(--color-edge);
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.015);
+    font-size: 0.84rem;
+    line-height: 1.6;
+    color: var(--color-dim);
+  }
+
+  .notice strong {
+    color: var(--color-mist);
+  }
+
+  .notice code {
+    padding: 0.1rem 0.35rem;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.05);
+  }
+
+  .notice--warn {
+    border-color: rgba(255, 176, 32, 0.3);
+  }
+
+  .admin__bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--color-edge);
+  }
+
+  .admin__stack {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    margin-top: 1.5rem;
+  }
+
+  .admin__stack .pcard {
+    gap: 1rem;
+  }
+
+  .admin__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-top: 1.5rem;
+  }
+
+  /* -------------------------------------------------------------------------
+     The admin editor's own vocabulary
+     The editor is the site's own type and colours — the section headings it
+     edits look like the section headings it edits, because that is the surest
+     way for an admin to know which words they are changing.
+  ------------------------------------------------------------------------- */
+
+  .admin__tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin-top: 1.5rem;
+    padding: 0.35rem;
+    border: 1px solid var(--color-edge);
+    border-radius: 999px;
+    background: var(--color-ink-2);
+    width: fit-content;
+  }
+
+  .admin__tab {
+    padding: 0.5rem 1.1rem;
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--color-dim);
+    font-family: var(--font-display);
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.18s ease, color 0.18s ease;
+  }
+
+  .admin__tab:hover {
+    color: var(--color-mist);
+  }
+
+  .admin__tab[aria-selected="true"] {
+    background: rgba(0, 224, 210, 0.12);
+    color: var(--color-teal);
+  }
+
+  /* A group of fields that reads as one section of the page. */
+  .admin__group {
+    margin-top: 2.25rem;
+    padding-top: 1.75rem;
+    border-top: 1px solid var(--color-edge);
+  }
+
+  .admin__group-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.75rem;
+  }
+
+  .admin__group-title {
+    font-family: var(--font-display);
+    font-size: 1.05rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+
+  .admin__group-note {
+    font-size: 0.8rem;
+    color: var(--color-dim);
+  }
+
+  .admin__fields {
+    display: grid;
+    gap: 1rem;
+    margin-top: 1.25rem;
+  }
+
+  .admin__fields--pair {
+    grid-template-columns: 1fr;
+  }
+
+  @media (min-width: 720px) {
+    .admin__fields--pair {
+      grid-template-columns: 1fr 1fr;
+    }
+  }
+
+  /* A textarea that grows with its content instead of scrolling inside itself. */
+  .input--lines {
+    min-height: 3.4rem;
+    line-height: 1.6;
+  }
+
+  /* The bullet list editor: one line per row, with an add and a remove. */
+  .admin__lines {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .admin__line {
+    display: flex;
+    gap: 0.5rem;
+    align-items: flex-start;
+  }
+
+  .admin__line .input {
+    flex: 1;
+  }
+
+  .admin__icon-btn {
+    flex: 0 0 auto;
+    width: 2.3rem;
+    height: 2.3rem;
+    border: 1px solid var(--color-edge);
+    border-radius: 11px;
+    background: transparent;
+    color: var(--color-dim);
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: color 0.16s ease, border-color 0.16s ease;
+  }
+
+  .admin__icon-btn:hover {
+    color: var(--color-teal);
+    border-color: var(--color-edge-teal);
+  }
+
+  /* The screenshot editor: a thumbnail the admin can recognise. */
+  .admin__shots {
+    display: grid;
+    gap: 1rem;
+    margin-top: 1.25rem;
+    grid-template-columns: 1fr;
+  }
+
+  @media (min-width: 720px) {
+    .admin__shots {
+      grid-template-columns: 1fr 1fr;
+    }
+  }
+
+  .admin__shot {
+    display: flex;
+    gap: 0.9rem;
+    padding: 0.9rem;
+    border: 1px solid var(--color-edge);
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.015);
+  }
+
+  .admin__shot-preview {
+    flex: 0 0 auto;
+    width: 74px;
+    aspect-ratio: 1 / 2;
+    border-radius: 10px;
+    overflow: hidden;
+    background: var(--color-ink);
+    border: 1px solid var(--color-edge);
+  }
+
+  .admin__shot-preview img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: top;
+    display: block;
+  }
+
+  .admin__shot-body {
+    flex: 1;
+    min-width: 0;
+    display: grid;
+    gap: 0.7rem;
+  }
+
+  .admin__shot-key {
+    font-family: var(--font-display);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--color-teal);
+  }
+
+  .admin__sticky {
+    position: sticky;
+    bottom: 0;
+    z-index: 40;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem;
+    margin-top: 2rem;
+    padding: 0.9rem 1rem;
+    border: 1px solid var(--color-edge);
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--color-ink) 92%, transparent);
+    backdrop-filter: blur(10px);
+  }
+
+  .admin__status {
+    flex: 1;
+    min-width: 12rem;
+    font-size: 0.82rem;
+    color: var(--color-dim);
+  }
+
+  /* A file input driven by its own button, so it never has to be styled. */
+  .hidden-input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
 }
 
 /* ---------------------------------------------------------------------------

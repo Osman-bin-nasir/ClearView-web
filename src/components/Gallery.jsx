@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
-import { GALLERY, screen } from '../data/content.js';
+import { screen, useSite } from '../data/site.js';
 import Lightbox from './Lightbox.jsx';
 
 /**
@@ -8,9 +8,17 @@ import Lightbox from './Lightbox.jsx';
  * A horizontal scroll-snap row (touch-friendly on phones, wheel/trackpad on
  * desktop) where every thumbnail opens the lightbox. Left/right arrow keys
  * move focus along the strip; the browser scrolls the focused item into view.
+ *
+ * The list, the titles and the alt text are the admin's: every screenshot in the
+ * content store is shown here in order, so replacing an image or reordering the
+ * strip is a change in the admin screen rather than in this file.
  */
 export default function Gallery() {
-  const items = useMemo(() => GALLERY.map(screen), []);
+  const site = useSite();
+  const items = useMemo(
+    () => site.gallery.screens.map((entry) => screen(site, entry.key)).filter(Boolean),
+    [site],
+  );
   const [index, setIndex] = useState(null); // null = lightbox closed
   const stripRef = useRef(null);
 
@@ -39,13 +47,11 @@ export default function Gallery() {
       <div className="wrap">
         <div className="reveal flex flex-col gap-3 md:flex-row md:items-end md:justify-between" data-reveal>
           <div>
-            <span className="eyebrow">Screens</span>
-            <h2 className="mt-4 text-[clamp(1.65rem,3.6vw,2.45rem)]">
-              Every screen in the app.
-            </h2>
+            <span className="eyebrow">{site.gallery.eyebrow}</span>
+            <h2 className="mt-4 text-[clamp(1.65rem,3.6vw,2.45rem)]">{site.gallery.title}</h2>
           </div>
           <p className="text-sm text-dim md:text-right">
-            {items.length} screens · swipe or scroll the strip · tap one to enlarge
+            {items.length} screens · {site.gallery.hint}
           </p>
         </div>
       </div>
@@ -59,7 +65,7 @@ export default function Gallery() {
       >
         {items.map((item, i) => (
           <button
-            key={item.file}
+            key={`${item.key}-${item.file}`}
             type="button"
             className="strip__item"
             onClick={() => setIndex(i)}

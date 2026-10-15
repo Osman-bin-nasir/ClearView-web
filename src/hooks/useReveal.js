@@ -6,8 +6,13 @@ import { useEffect } from 'react';
  * Fades in every element marked with `data-reveal` once it enters the
  * viewport, then stops watching it. The matching CSS lives in index.css
  * (.reveal / .is-visible) and the reduced-motion block there neutralises it.
+ *
+ * `dependency` is the current route. The landing page is unmounted when the
+ * privacy or admin page is shown and re-mounted when it comes back, which
+ * re-creates every `.reveal` element at opacity 0 — so the observer has to be
+ * armed again, or returning to the site would show a blank page.
  */
-export default function useReveal() {
+export default function useReveal(dependency) {
   useEffect(() => {
     const targets = Array.from(document.querySelectorAll('[data-reveal]'));
     if (targets.length === 0) return;
@@ -35,5 +40,5 @@ export default function useReveal() {
 
     targets.forEach((el) => observer.observe(el));
     return () => observer.disconnect();
-  }, []);
+  }, [dependency]);
 }
