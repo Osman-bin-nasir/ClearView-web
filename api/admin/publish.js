@@ -149,7 +149,9 @@ export function githubStorage({ fetchImpl = globalThis.fetch, env = process.env 
       ...(token() === '' ? ['GITHUB_TOKEN'] : []),
       ...(/^[\w.-]+\/[\w.-]+$/.test(repo()) ? [] : ['GITHUB_REPO']),
     ],
-    target: () => `${repo()} @ ${branch()}`,
+    // Empty when there is no repository to name: a target of " @ main" reads as a
+    // destination when there is none, and the screen prints this verbatim.
+    target: () => (/^[\w.-]+\/[\w.-]+$/.test(repo()) ? `${repo()} @ ${branch()}` : ''),
 
     async commit({ path, content, message }) {
       const where = `${api(path)}?ref=${encodeURIComponent(branch())}`;

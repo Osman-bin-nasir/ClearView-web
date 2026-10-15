@@ -352,7 +352,8 @@ export const PUBLISH_ERRORS = {
     'This deployment has no admin credentials, so there is nothing to publish with.',
   publish_not_configured:
     'This deployment cannot publish yet: it has nowhere to put the file.',
-  bad_request: 'That document was refused. Export it, check it, and try again.',
+  bad_request:
+    'The site refused that document: it was not the JSON of the shape it expects. Reload this page and try again.',
   github_failed: 'GitHub refused the commit.',
   publish_failed: 'The publish did not complete. Try again.',
   failed: 'The publish did not complete. Try again.',
