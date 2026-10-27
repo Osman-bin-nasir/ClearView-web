@@ -67,6 +67,27 @@ const SCREENS = {
     title: 'Strict Mode',
     alt: 'Protection settings listing Strict Mode, blocked keywords and websites, the shared blocklist with pending requests and an activity log',
   },
+  browserHome: {
+    file: 'browser-home.jpg',
+    w: 771,
+    h: 1600,
+    title: 'Browser',
+    alt: 'ClearView Browser tab with a web search bar, shortcuts to YouTube, Instagram, Leetcode and Google, and a note that ClearView checks pages and searches on this device',
+  },
+  browserSettings: {
+    file: 'browser-settings.jpg',
+    w: 797,
+    h: 1600,
+    title: 'Browser protection',
+    alt: 'Protection settings inside the ClearView browser with switches for Strict Mode, hiding YouTube Shorts and Instagram Reels, trimming Google search categories, removing blocked videos and blocking YouTube ads',
+  },
+  browserShorts: {
+    file: 'browser-shorts.jpg',
+    w: 811,
+    h: 1600,
+    title: 'Shorts blocked',
+    alt: 'YouTube open in the ClearView browser with the Shorts shelf empty and Shorts entry points hidden while ordinary videos still show',
+  },
   mediaFeed: {
     file: 'media-feed.jpeg',
     w: 509,
@@ -167,6 +188,9 @@ const screenList = (order) => order.map((key) => ({ key, ...SCREENS[key] }));
 const GALLERY_ORDER = [
   'protection',
   'strictMode',
+  'browserHome',
+  'browserSettings',
+  'browserShorts',
   'mediaFeed',
   'mediaChannels',
   'mediaPlaylists',
@@ -206,6 +230,7 @@ export const DEFAULT_SITE = Object.freeze({
     nav: [
       { label: 'Platforms', href: '#platforms' },
       { label: 'Protection', href: '#protection' },
+      { label: 'Browser', href: '#browser' },
       { label: 'Screens', href: '#showcase' },
       { label: 'Privacy', href: '#/privacy' },
     ],
@@ -214,7 +239,7 @@ export const DEFAULT_SITE = Object.freeze({
   hero: {
     eyebrow: 'Android · iOS · Chrome',
     title: 'Watch what you want, not what they want.',
-    lead: 'ClearView is one organisation with three apps: safer browsing, focused media, productivity and everyday tools on Android and on iPhone and iPad — and the same protection running in Chrome, right where the browsing happens.',
+    lead: 'ClearView is one organisation with three apps: a browser with protection built in, focused media, productivity and everyday tools on Android and on iPhone and iPad — and the same protection running in Chrome, right where the browsing happens.',
     /* The one button in the hero, and what it says. It scrolls to the cards. */
     cta: 'Download',
   },
@@ -231,7 +256,7 @@ export const DEFAULT_SITE = Object.freeze({
         short: 'Android',
         device: 'Phone & tablet',
         store: 'Google Play',
-        note: 'Protection, Media, GoodPost, Productivity and Quran — the whole app, with Android’s device-level blocking.',
+        note: 'Protection, Browser, Media, GoodPost, Productivity and Quran — the whole app, with Android’s device-level blocking.',
       },
       ios: {
         name: 'ClearView for iOS',
@@ -245,7 +270,7 @@ export const DEFAULT_SITE = Object.freeze({
         short: 'Chrome',
         device: 'Desktop browser',
         store: 'Chrome Web Store',
-        note: 'The browser half: explicit sites and searches, YouTube ads and Shorts, blocked channels and Brain Bot filtering. In review.',
+        note: 'The Chrome extension: explicit sites and searches, YouTube ads and Shorts, blocked channels and Brain Bot filtering.',
       },
     },
   },
@@ -257,16 +282,31 @@ export const DEFAULT_SITE = Object.freeze({
     {
       eyebrow: 'Protection',
       title: 'Guard rails you set once.',
-      lead: 'ClearView watches Chrome and Google Search and stops the pages and searches you told it to stop — then stays quiet.',
+      lead: 'ClearView watches the pages you open and the searches you make, and stops what you told it to stop — then stays quiet.',
       points: [
-        'Blocks explicit websites and adult search terms.',
+        'Blocks explicit websites, adult search terms, and the keywords or sites you add yourself.',
         'Strict Mode matches patterns, so innocent words like “woman” or “girl” on their own are fine. “woman beach” is not.',
-        'Pauses YouTube Shorts in Chrome and in the YouTube app.',
+        'Hides YouTube Shorts in ClearView’s browser, in Chrome and in the YouTube app.',
+        'Filters unwanted YouTube content using your own keywords.',
         'Brain Rot Protection: tap “Not interested” and that channel is blocked with an explanation overlay instead of vanishing silently.',
         'Share a blocked channel to the shared blocklist. Once an admin approves it, it is blocked for every ClearView user.',
         'DNS-level blocking, plus a password lock so the settings stay yours.',
       ],
-      note: 'Protection applies to websites you visit in Chrome and to Google Search.',
+      note: 'Protection applies to the built-in browser, Chrome and Google Search.',
+    },
+    {
+      eyebrow: 'Browser',
+      title: 'A browser that skips the noise.',
+      lead: 'The Browser tab puts search, shortcuts and protection in one place. Open the sites you use, sign in with your own account, and let ClearView keep Shorts, Reels and ads out of the page.',
+      points: [
+        'Search the web, open Google, YouTube or Instagram, and add any site as a shortcut.',
+        'Keep Google on the All tab, with SafeSearch on and Images hidden by default.',
+        'Hide YouTube Shorts entry points, shelves and direct links.',
+        'Hide Instagram Reels and other distracting interface elements.',
+        'Block YouTube ads and remove blocked videos from the feed instead of only covering them.',
+        'Sign in to the sites you use with your own account. ClearView checks pages and searches on this device.',
+      ],
+      note: 'Browser controls apply to supported websites and run on Android.',
     },
     {
       eyebrow: 'Media',
@@ -274,6 +314,7 @@ export const DEFAULT_SITE = Object.freeze({
       lead: 'Add the YouTube, Instagram and X accounts you actually follow and ClearView turns them into one feed you control.',
       points: [
         'Add handles and get their posts as an RSS feed.',
+        'Filter videos and Shorts, and keep the feed to the channels you chose.',
         'Import a YouTube playlist, start your own, or add a video by URL or from your device.',
         'Download audio and keep it on the phone.',
         'Watch inside the app and resume exactly where you stopped.',
@@ -306,8 +347,9 @@ export const DEFAULT_SITE = Object.freeze({
       lead: 'English and Arabic together, search and bookmarks, and a reminder that shows up when you want it.',
       points: [
         'Reading works offline. Word-by-word audio needs an internet connection.',
-        'Search any surah or jump back to a bookmark.',
+        'Search any word or surah, or jump back to a bookmark.',
         'Hijri date alongside the Gregorian one, with a Quran widget for the home screen.',
+        'Makkah and Madinah live streams, when you want them.',
       ],
     },
   ],
@@ -354,7 +396,7 @@ export const DEFAULT_SITE = Object.freeze({
       {
         title: 'In short',
         body: [
-          '- The pages you visit and the searches you make are checked **on your own device**. They are never uploaded, never logged and never profiled.',
+          '- The pages you visit and the searches you make — in ClearView’s Browser tab, in Chrome and on Google Search — are checked **on your own device**. They are never uploaded, never logged and never profiled.',
           '- ClearView collects **no browsing history**, and there is no advertising, no analytics and no tracking of any kind.',
           '- Nothing leaves your device unless you ask for it — a keyword or channel you submit for everyone to block, or a mistake you report. That request carries a random install id and nothing about you.',
           '- Reading GoodPost needs no account. Only creators and administrators sign in.',
@@ -364,6 +406,7 @@ export const DEFAULT_SITE = Object.freeze({
         title: 'What is checked on your device',
         body: [
           '- Every address, search query and YouTube title the apps examine is matched locally, against a rules bundle the app already holds. The matching happens in the app; the rules are not uploaded and the content you were looking at is not sent anywhere.',
+          '- The Browser tab runs the same matcher against the pages and searches you open inside it; the checks happen on the device.',
           '- When a page is blocked, the page that replaces it is told only a **reason code** — never the blocked address and never the term that matched — so the content you were being protected from is not reprinted on screen or left in your history.',
           '- Blocking counts belong to you and stay on your device.',
         ].join('\n'),
@@ -391,6 +434,7 @@ export const DEFAULT_SITE = Object.freeze({
         title: 'The Android app',
         body: [
           '- The Accessibility Service is **optional** and is used only for blocking features. It is never used for audio recording, and never used to read or transmit the content of other apps.',
+          '- The Browser tab applies the same rules to supported sites inside the app, on the device.',
           '- Device administration, uninstall protection and the phone limit are protections of the device itself and can be turned off by the person who set them up.',
           '- If you choose DNS-level blocking, the domain-name lookups that make it work leave the device to the DNS provider you selected. Turn it off and they stop.',
           '- Media sources you add (YouTube channels, Instagram and X profiles) are fetched from those services directly, under their terms and their privacy policies, not ours.',

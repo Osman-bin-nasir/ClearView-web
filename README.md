@@ -23,8 +23,9 @@ without it and the site still works; the admin screen then says so, plainly, ins
 showing a form that cannot succeed.
 
 The feature sections describe the phone app (Android and iOS share those areas); the
-browser half is the extension, and its job is Protection. The order on the page is
-deliberate: a visitor finds out what runs where before reading phone features.
+Android app's Browser tab and the Chrome extension are where browsing protection lives.
+The order on the page is deliberate: a visitor finds out what runs where before reading
+phone features.
 
 ## One button
 
@@ -46,7 +47,7 @@ Because the cards render **no link at all** for a platform that is not live, the
 also means nobody can reach a store URL that 404s: the only link on the page for an
 unreleased app is the one that does not exist.
 
-The header's own destinations — Platforms, Protection, Screens, Privacy — are edited in
+The header's own destinations — Platforms, Protection, Browser, Screens, Privacy — are edited in
 the admin's **Brand & header** group; there is no header button label to edit, because
 there is no header button.
 
@@ -67,10 +68,10 @@ add a fourth one would be a way to make the site lie. (**The card's words** — 
 device line, store name and note — are content, and are edited on the admin screen's
 Content tab. A wrong word and a wrong link are two different mistakes.)
 
-> **The iOS and Chrome URLs are placeholders.** Neither is live, so the cards show
-> *Coming soon* and render **no link at all** — a plausible-looking store URL that
-> 404s reads as a broken product rather than an unreleased one. The admin screen
-> refuses to mark a platform live while its URL still looks like a mock.
+> **The iOS URL is a placeholder.** It is not live, so the card shows *Coming soon*
+> and renders **no link at all** — a plausible-looking store URL that 404s reads as
+> a broken product rather than an unreleased one. The admin screen refuses to mark a
+> platform live while its URL still looks like a mock.
 
 ## The admin screen
 
@@ -387,7 +388,7 @@ an ordinary in-page anchor, not a route, and stays one.
 
 **You do not edit a component to change a word.** Every string and every image on
 the page lives in `src/data/site.js` (`DEFAULT_SITE`), in the page's own order: the
-brand, the header, the hero, the three app cards, the five product sections, the
+brand, the header, the hero, the three app cards, the six product sections, the
 screenshot list, the closing section, the footer and the privacy policy. Components
 are layout only.
 
@@ -430,7 +431,7 @@ in the footer and the browser sections there have to say the same thing.
   if the logo is ever replaced. As delivered it keeps its white background:
   `public/logo.png` is the heart centred on a 300x300 white tile, and the header
   and footer round the corners with CSS.
-- The gallery holds the 15 screens, so it renders `{items.length}` of them. Adding
+- The gallery holds the 18 screens, so it renders `{items.length}` of them. Adding
   one back is a one-line change in `SCREENS` + `GALLERY`.
 - The Quran section has two screens (reminder + surah list). There is no separate
   full-page reading-view screenshot in the upload, so the reminder screen — which

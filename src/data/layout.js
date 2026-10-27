@@ -28,8 +28,18 @@ export const SECTION_LAYOUT = [
     ],
   },
   {
-    id: 'media',
+    id: 'browser',
     side: 'right',
+    pointsStyle: 'notes',
+    cluster: [
+      { key: 'browserHome', y: '24px', r: '-4deg', mx: '0' },
+      { key: 'browserSettings', y: '-16px', r: '2.5deg', mx: '-9%' },
+      { key: 'browserShorts', y: '26px', r: '4deg', mx: '-9%' },
+    ],
+  },
+  {
+    id: 'media',
+    side: 'left',
     pointsStyle: 'notes',
     cluster: [
       { key: 'mediaChannels', y: '22px', r: '-4deg', mx: '0' },
@@ -40,7 +50,7 @@ export const SECTION_LAYOUT = [
   },
   {
     id: 'goodpost',
-    side: 'left',
+    side: 'right',
     tone: 'band',
     pointsStyle: 'rows',
     cluster: [
@@ -50,7 +60,7 @@ export const SECTION_LAYOUT = [
   },
   {
     id: 'productivity',
-    side: 'right',
+    side: 'left',
     pointsStyle: 'split',
     cluster: [
       { key: 'todo', y: '18px', r: '-4deg', mx: '0' },
@@ -61,7 +71,7 @@ export const SECTION_LAYOUT = [
   },
   {
     id: 'quran',
-    side: 'left',
+    side: 'right',
     tone: 'band',
     pointsStyle: 'notes',
     cluster: [
@@ -79,6 +89,6 @@ export const SECTION_LAYOUT = [
  */
 export const HERO_LAYOUT = [
   { key: 'mediaFeed', y: '28px', r: '-5deg', mx: '0px' },
-  { key: 'protection', y: '-18px', r: '0deg', mx: '-9%' },
-  { key: 'todo', y: '32px', r: '5deg', mx: '-9%' },
+  { key: 'browserHome', y: '-18px', r: '0deg', mx: '-9%' },
+  { key: 'protection', y: '32px', r: '5deg', mx: '-9%' },
 ];
