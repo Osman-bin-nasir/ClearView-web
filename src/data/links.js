@@ -16,9 +16,9 @@
  * The store lives here rather than in a component so the header, the hero, the
  * footer and the admin form all read the same list and cannot drift apart.
  *
- * The iOS and Chrome entries carry PLACEHOLDER urls on purpose: neither is live,
- * so a plausible-looking link would be a lie the visitor only discovers after
- * clicking. They are marked `soon`, which is what the UI keys on to show
+ * The iOS entry carries a PLACEHOLDER url on purpose: it is not live, so a
+ * plausible-looking link would be a lie the visitor only discovers after
+ * clicking. It is marked `soon`, which is what the UI keys on to show
  * "Coming soon" instead of a button.
  */
 
@@ -46,7 +46,7 @@ export const DEFAULT_PLATFORMS = Object.freeze([
     store: 'Google Play',
     status: 'live',
     url: 'https://play.google.com/store/apps/details?id=com.muddassir.clearview',
-    note: 'Protection, Media, GoodPost, Productivity and Quran — the whole app, with Android’s device-level blocking.',
+    note: 'Protection, Browser, Media, GoodPost, Productivity and Quran — the whole app, with Android’s device-level blocking.',
   },
   {
     id: 'ios',
@@ -65,10 +65,9 @@ export const DEFAULT_PLATFORMS = Object.freeze([
     short: 'Chrome',
     device: 'Desktop browser',
     store: 'Chrome Web Store',
-    // PLACEHOLDER — the listing is not published yet.
-    status: 'soon',
-    url: 'https://chromewebstore.google.com/detail/clearview/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
-    note: 'The browser half: explicit sites and searches, YouTube ads and Shorts, blocked channels and Brain Bot filtering. In review.',
+    status: 'live',
+    url: 'https://chromewebstore.google.com/detail/clearview-%E2%80%94-content-prote/iddgbmbbcncfgdbdfckjinfkgnbejamo?hl=en-GB&utm_source=ext_sidebar',
+    note: 'The Chrome extension: explicit sites and searches, YouTube ads and Shorts, blocked channels and Brain Bot filtering.',
   },
 ]);
 
